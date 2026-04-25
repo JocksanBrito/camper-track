@@ -123,6 +123,13 @@ export default function Home() {
                   Painel
                 </Link>
                 <Link
+                  href="/calendario"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
+                >
+                  Calendário
+                </Link>
+                <Link
                   href="/diario"
                   onClick={() => setIsMenuOpen(false)}
                   className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
@@ -182,25 +189,6 @@ export default function Home() {
             driver={tripulacao.driver}
             passenger={tripulacao.passenger}
           />
-        </div>
-
-        {/* Botões Lado a Lado */}
-        <div className="grid grid-cols-2 gap-4 w-full">
-          <a
-            href={isLoggedIn ? "/admin" : "/login"}
-            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 text-xs py-2 px-1"
-          >
-            <span className="flex items-center justify-center gap-1">
-              <Zap size={14} fill="currentColor" />
-              {isLoggedIn ? "Painel de Controle" : "Corrida (Login)"}
-            </span>
-          </a>
-          <button className="game-button bg-[var(--mario-blue)] text-white hover:bg-blue-600 text-xs py-2 px-1">
-            <span className="flex items-center justify-center gap-1">
-              <Trophy size={14} />
-              Placar
-            </span>
-          </button>
         </div>
 
         {/* Mapa */}
