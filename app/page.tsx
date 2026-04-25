@@ -12,6 +12,7 @@ import { TravelLog } from "@/components/TravelLog";
 import { GameModal } from "@/components/GameModal";
 import { toast } from "sonner";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const { isLoggedIn, logout } = useAuth();
@@ -19,50 +20,18 @@ export default function Home() {
   const [newCheckpointName, setNewCheckpointName] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const totalDistance = 2500;
-  const currentDistance = 1250;
-
-  const mockPoints = [
-    {
-      id: 1,
-      lat: -23.5505,
-      lng: -46.6333,
-      label: "São Paulo",
-      timestamp: "2026-04-24T10:00:00Z",
-    },
-    {
-      id: 2,
-      lat: -22.9068,
-      lng: -43.1729,
-      label: "Rio de Janeiro",
-      timestamp: "2026-04-24T18:00:00Z",
-    },
-    {
-      id: 3,
-      lat: -19.9167,
-      lng: -43.9345,
-      label: "Belo Horizonte",
-      timestamp: "2026-04-25T08:00:00Z",
-    },
-    {
-      id: 4,
-      lat: -15.7942,
-      lng: -47.8822,
-      label: "Brasília",
-      timestamp: "2026-04-25T14:00:00Z",
-    },
-  ];
-
-  const updatedAt = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
-
-  const perfilViagem = {
+  const [totalDistance] = useState(2500);
+  const [currentDistance] = useState(1250);
+  const [points, setPoints] = useState<any[]>([
+    { id: 1, lat: -23.5505, lng: -46.6333, label: "São Paulo", timestamp: new Date().toISOString() }
+  ]);
+  const [perfilViagem, setPerfilViagem] = useState({
     nome_carro: "Camper",
     ano_carro: "2026",
     pais_atual: "Brasil",
     descricao_viagem: "Expedição pelo coração do Brasil.",
-  };
-
-  const tripulacao = {
+  });
+  const [tripulacao, setTripulacao] = useState({
     driver: {
       name: "Piloto",
       role: "Motorista",
@@ -73,7 +42,64 @@ export default function Home() {
       role: "Navegador",
       avatar: "https://api.dicebear.com/7.x/pixel-art/svg?seed=passenger",
     },
-  };
+  });
+
+  const updatedAt = new Date().toISOString();
+
+  useEffect(() => {
+    const loadRealData = async () => {
+      // 1. Fetch Points
+      const { data: pts } = await supabase
+        .from("track_points")
+        .select("*")
+        .order("timestamp", { ascending: true });
+      if (pts && pts.length > 0) {
+        setPoints(pts);
+      }
+
+      // 2. Fetch Perfil
+      const { data: pf } = await supabase
+        .from("perfil_viagem")
+        .select("*")
+        .limit(1)
+        .single();
+      if (pf) {
+        setPerfilViagem({
+          nome_carro: pf.nome_carro || "Camper",
+          ano_carro: pf.ano_carro || "2026",
+          pais_atual: pf.pais_atual || "Brasil",
+          descricao_viagem: pf.descricao_viagem || "Expedição pelo coração do Brasil.",
+        });
+      }
+
+      // 3. Fetch Tripulação
+      const { data: crew } = await supabase
+        .from("tripulacao")
+        .select("*")
+        .eq("status", "aprovado");
+      if (crew && crew.length > 0) {
+        const drv = crew.find((c) => c.role === "copiloto") || crew[0];
+        const pass = crew.find((c) => c.role === "passageiro") || crew[1];
+        setTripulacao({
+          driver: {
+            name: drv?.nome || "Piloto",
+            role: "Motorista",
+            avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
+              drv?.nome || "driver"
+            }`,
+          },
+          passenger: {
+            name: pass?.nome || "Copiloto",
+            role: "Navegador",
+            avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
+              pass?.nome || "passenger"
+            }`,
+          },
+        });
+      }
+    };
+    loadRealData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center justify-start p-4 md:p-8 relative overflow-hidden pb-20 md:pb-8">
@@ -193,7 +219,7 @@ export default function Home() {
 
         {/* Mapa */}
         <div className="w-full relative">
-          <TrackMap points={mockPoints} />
+          <TrackMap points={points} />
           {/* Botão flutuante (+) para o Viajante */}
           {isLoggedIn && (
             <button
@@ -214,7 +240,7 @@ export default function Home() {
           >
             📸 Veja por onde passamos (Diário)
           </Link>
-          <TravelLog points={mockPoints} />
+          <TravelLog points={points} />
         </div>
 
         {/* Footer */}

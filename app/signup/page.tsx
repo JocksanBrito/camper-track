@@ -30,7 +30,13 @@ export default function SignUp() {
       });
 
       if (error) {
-        toast.error(`Erro no cadastro: ${error.message}`);
+        if (error.message.includes("rate limit") || error.status === 429) {
+          toast.error(
+            "Muitas tentativas de cadastro! Tente novamente em alguns minutos ou contate o Admin."
+          );
+        } else {
+          toast.error(`Erro no cadastro: ${error.message}`);
+        }
         setLoading(false);
         return;
       }
