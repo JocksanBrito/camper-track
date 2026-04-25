@@ -64,24 +64,59 @@ export default function AdminDashboard() {
   const handleStart = async () => {
     setSavingMission(true);
     console.log("Tentando salvar dados de Missão (Partida)...");
-    
-    const { data, error } = await supabase
-      .from("perfil_viagem")
-      .update({
-        status_atual: "traveling",
-        local_atual: local,
-        next_destination: destino,
-        updated_at: new Date().toISOString(),
-      })
-      .neq("id", "00000000-0000-0000-0000-000000000000"); // Alvo genérico para atualizar o único registro
 
-    console.log("Resposta do Banco (Missão):", error);
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          local
+        )}&limit=1`,
+        {
+          headers: {
+            "User-Agent": "CamperTrack-Agentic-App",
+          },
+        }
+      );
+      const geoData = await geoRes.json();
 
-    if (error) {
-      toast.error(`Erro: ${error.message}`);
-    } else {
-      setStatus("traveling");
-      toast.success("Missão Iniciada! Status: Em Viagem");
+      if (!geoData || geoData.length === 0) {
+        toast.error(
+          "Localização não encontrada. Verifique o nome da cidade."
+        );
+        setSavingMission(false);
+        return;
+      }
+
+      const lat = parseFloat(geoData[0].lat);
+      const lon = parseFloat(geoData[0].lon);
+
+      // Salva ponto no histórico
+      await supabase.from("track_points").insert({
+        lat: lat,
+        lng: lon,
+        label: local,
+        timestamp: new Date().toISOString(),
+      });
+
+      const { data, error } = await supabase
+        .from("perfil_viagem")
+        .update({
+          status_atual: "traveling",
+          local_atual: local,
+          next_destination: destino,
+          updated_at: new Date().toISOString(),
+        })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      if (error) {
+        toast.error(`Erro: ${error.message}`);
+      } else {
+        setStatus("traveling");
+        toast.success("Missão Iniciada! Ponto Geocodificado e Salvo 📍");
+      }
+    } catch (err) {
+      toast.error(
+        "Erro na Geocodificação. Verifique sua conexão com o mapa."
+      );
     }
     setSavingMission(false);
   };
