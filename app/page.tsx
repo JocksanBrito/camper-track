@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { StatusBanner } from "@/components/StatusBanner";
 import { CrewSection } from "@/components/CrewSection";
 import { useAuth } from "@/contexts/AuthContext";
+import { TravelLog } from "@/components/TravelLog";
 
 export default function Home() {
   const { isLoggedIn, logout } = useAuth();
@@ -15,10 +16,34 @@ export default function Home() {
   const currentDistance = 1250;
 
   const mockPoints = [
-    { id: 1, lat: -23.5505, lng: -46.6333, label: "São Paulo" },
-    { id: 2, lat: -22.9068, lng: -43.1729, label: "Rio de Janeiro" },
-    { id: 3, lat: -19.9167, lng: -43.9345, label: "Belo Horizonte" },
-    { id: 4, lat: -15.7942, lng: -47.8822, label: "Brasília" },
+    {
+      id: 1,
+      lat: -23.5505,
+      lng: -46.6333,
+      label: "São Paulo",
+      timestamp: "2026-04-24T10:00:00Z",
+    },
+    {
+      id: 2,
+      lat: -22.9068,
+      lng: -43.1729,
+      label: "Rio de Janeiro",
+      timestamp: "2026-04-24T18:00:00Z",
+    },
+    {
+      id: 3,
+      lat: -19.9167,
+      lng: -43.9345,
+      label: "Belo Horizonte",
+      timestamp: "2026-04-25T08:00:00Z",
+    },
+    {
+      id: 4,
+      lat: -15.7942,
+      lng: -47.8822,
+      label: "Brasília",
+      timestamp: "2026-04-25T14:00:00Z",
+    },
   ];
 
   const updatedAt = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
@@ -141,6 +166,11 @@ export default function Home() {
               <Plus size={24} />
             </button>
           )}
+        </div>
+
+        {/* Log de Viagem Público */}
+        <div className="w-full">
+          <TravelLog points={mockPoints} />
         </div>
 
         {/* Footer */}
