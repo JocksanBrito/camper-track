@@ -22,9 +22,7 @@ export default function Home() {
 
   const [totalDistance] = useState(2500);
   const [currentDistance] = useState(1250);
-  const [points, setPoints] = useState<any[]>([
-    { id: 1, lat: -23.5505, lng: -46.6333, label: "São Paulo", timestamp: new Date().toISOString() }
-  ]);
+  const [points, setPoints] = useState<any[]>([]);
   const [perfilViagem, setPerfilViagem] = useState({
     nome_carro: "Camper",
     ano_carro: "2026",
