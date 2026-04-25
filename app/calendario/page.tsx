@@ -10,6 +10,11 @@ import { supabase } from "@/lib/supabase";
 export default function CalendarioDeMissao() {
   const { isLoggedIn } = useAuth();
   const [events, setEvents] = useState<any[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchCalendar = async () => {
@@ -87,6 +92,8 @@ export default function CalendarioDeMissao() {
     setHora("");
     toast.success("Trecho agendado com sucesso! 🚐💨");
   };
+
+  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center p-4 pt-12 pb-24 gap-6">

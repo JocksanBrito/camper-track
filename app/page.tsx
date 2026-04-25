@@ -52,9 +52,23 @@ export default function Home() {
         .from("track_points")
         .select("*")
         .order("timestamp", { ascending: true });
-      if (pts && pts.length > 0) {
-        setPoints(pts);
+      
+      const { data: cal } = await supabase
+        .from("calendario_missao")
+        .select("*");
+
+      let mergedPoints = pts || [];
+      if (cal && cal.length > 0) {
+        const calPts = cal.map((c: any, idx: number) => ({
+          id: `cal-${idx}`,
+          lat: 40.6333, // Heurística Itália
+          lng: 15.8000, 
+          label: c.destino,
+          timestamp: c.data_partida || new Date().toISOString(),
+        }));
+        mergedPoints = [...mergedPoints, ...calPts];
       }
+      setPoints(mergedPoints);
 
       // 2. Fetch Perfil
       const { data: pf } = await supabase
