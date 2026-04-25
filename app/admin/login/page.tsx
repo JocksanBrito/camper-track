@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "mario2026") {
-      // Define o cookie de autenticação
-      document.cookie = "admin-token=true; path=/";
+    if (login(password)) {
       router.push("/admin");
     } else {
       alert("Senha incorreta!");

@@ -112,11 +112,13 @@ export default function Home() {
         {/* Botões Lado a Lado */}
         <div className="grid grid-cols-2 gap-4 w-full">
           <a
-            href={isLoggedIn ? "/admin" : "/admin/login"}
-            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 text-xs py-2 px-1 flex items-center justify-center gap-1"
+            href={isLoggedIn ? "/admin" : "/login"}
+            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 text-xs py-2 px-1"
           >
-            <Zap size={14} fill="currentColor" />
-            {isLoggedIn ? "Painel Admin" : "Corrida (Login)"}
+            <span className="flex items-center justify-center gap-1">
+              <Zap size={14} fill="currentColor" />
+              {isLoggedIn ? "Painel de Controle" : "Corrida (Login)"}
+            </span>
           </a>
           <button className="game-button bg-[var(--mario-blue)] text-white hover:bg-blue-600 text-xs py-2 px-1">
             <span className="flex items-center justify-center gap-1">
