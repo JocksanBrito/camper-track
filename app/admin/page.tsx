@@ -283,35 +283,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Card: Cérebro de Missão (IA) */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
-        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-red)] flex items-center gap-2">
-          🧠 Cérebro de Missão
-        </h2>
-        <div className="flex flex-col gap-3 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
-          <textarea
-            value={aiCommand}
-            onChange={(e) => setAiCommand(e.target.value)}
-            placeholder="Ex: 'Estamos saindo de Potenza para Fardella agora...'"
-            className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white text-xs font-bold min-h-[60px]"
-          />
-          <button
-            disabled={loadingAI || !aiCommand.trim()}
-            onClick={async () => {
-              setLoadingAI(true);
-              toast.info("Aguardando decisão da IA...");
-              setTimeout(() => {
-                toast.success("Comando executado!");
-                setLoadingAI(false);
-                setAiCommand("");
-              }, 2000);
-            }}
-            className="game-button bg-[var(--mario-blue)] text-white w-full text-xs disabled:opacity-50"
-          >
-            {loadingAI ? "Pensando..." : "Executar Comando AI"}
-          </button>
-        </div>
-      </div>
+      {/* Card 2: Configurações do Veículo */}
       <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
         <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-yellow)] flex items-center gap-2">
           <Save size={20} />
