@@ -44,9 +44,10 @@ export default function Home() {
     },
   });
 
-  const updatedAt = new Date().toISOString();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const loadRealData = async () => {
       // 1. Fetch Points
       const { data: pts } = await supabase
@@ -102,6 +103,8 @@ export default function Home() {
     const interval = setInterval(loadRealData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  if (!isClient) return null;
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center justify-start p-4 md:p-8 relative overflow-hidden pb-20 md:pb-8">
@@ -207,7 +210,7 @@ export default function Home() {
             status="stopped"
             currentLocation="Posto Graal"
             nextDestination="Brasília"
-            updatedAt={updatedAt}
+            updatedAt={new Date().toISOString()}
           />
         </div>
 
