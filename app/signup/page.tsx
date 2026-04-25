@@ -45,6 +45,14 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm flex justify-start mb-4">
+        <Link
+          href="/"
+          className="game-button bg-zinc-800 text-white text-xs py-2 px-3 flex items-center gap-1.5"
+        >
+          Voltar
+        </Link>
+      </div>
       <form
         onSubmit={handleSignUp}
         className="glass-panel p-6 rounded-2xl game-border-red flex flex-col gap-4 max-w-sm w-full"

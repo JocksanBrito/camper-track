@@ -1,7 +1,7 @@
 "use client";
  
 import { useState, useEffect } from "react";
-import { Trophy, Compass, Zap, Star, Settings, Plus } from "lucide-react";
+import { Trophy, Compass, Zap, Star, Settings, Plus, Menu, X } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
 import { TrackMap } from "@/components/TrackMap";
 import { BottomNav } from "@/components/BottomNav";
@@ -17,6 +17,7 @@ export default function Home() {
   const { isLoggedIn, logout } = useAuth();
   const [isCheckpointModalOpen, setIsCheckpointModalOpen] = useState(false);
   const [newCheckpointName, setNewCheckpointName] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const totalDistance = 2500;
   const currentDistance = 1250;
@@ -84,38 +85,62 @@ export default function Home() {
         <Star size={48} fill="currentColor" />
       </div>
 
-      {/* Top Navbar */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        {!isLoggedIn ? (
-          <>
-            <a
-              href="/login"
-              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
-            >
-              Login
-            </a>
-            <a
-              href="/signup"
-              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
-            >
-              Recrutar
-            </a>
-          </>
-        ) : (
-          <>
-            <a
-              href="/admin"
-              className="game-button bg-[var(--mario-yellow)] text-black text-[10px] px-2 py-1 font-bold"
-            >
-              Painel
-            </a>
-            <button
-              onClick={logout}
-              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
-            >
-              Sair
-            </button>
-          </>
+      {/* Mobile & Desktop Burger Menu */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="game-button bg-zinc-800 text-white p-2 flex items-center justify-center border-2 border-black"
+        >
+          {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute top-12 right-0 bg-zinc-900 border-4 border-black p-2 rounded-xl flex flex-col gap-2 min-w-[120px] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-[1000] animate-scaleUp">
+            {!isLoggedIn ? (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
+                >
+                  Recrutar
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/admin"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-[var(--mario-yellow)] text-black text-xs py-1 text-center font-black"
+                >
+                  Painel
+                </Link>
+                <Link
+                  href="/diario"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
+                >
+                  Diário
+                </Link>
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="game-button bg-[var(--mario-red)] text-white text-xs py-1 font-bold"
+                >
+                  Sair
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 

@@ -169,6 +169,15 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(local)}&destination=${encodeURIComponent(destino)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="game-button bg-[var(--mario-blue)] text-white font-black text-center text-xs py-3 w-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black mt-2 uppercase flex items-center justify-center gap-2"
+        >
+          🗺️ Iniciar Navegação no Google Maps
+        </a>
+
         {/* Inputs de Status */}
         <div className="flex flex-col gap-4 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
           <div className="flex flex-col gap-2">
