@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Clock, Calendar, ArrowLeft, CheckCircle, Circle, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,28 +9,32 @@ import { supabase } from "@/lib/supabase";
 
 export default function CalendarioDeMissao() {
   const { isLoggedIn } = useAuth();
-  const [events, setEvents] = useState<any[]>([
-    {
-      id: 1,
-      origem: "São Paulo",
-      destino: "Paraty",
-      data: "26/04/2026",
-      hora_partida: "08:00",
-      hora_chegada: "12:30",
-      descricao: "Início da expedição pelas serras.",
-      status: "concluido",
-    },
-    {
-      id: 2,
-      origem: "Paraty",
-      destino: "Rio de Janeiro",
-      data: "27/04/2026",
-      hora_partida: "09:00",
-      hora_chegada: "14:00",
-      descricao: "Passeio pela orla e descanso.",
-      status: "programado",
-    },
-  ]);
+  const [events, setEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCalendar = async () => {
+      const { data } = await supabase
+        .from("calendario_missao")
+        .select("*")
+        .order("data_partida", { ascending: true });
+      if (data) {
+        setEvents(
+          data.map((d: any, idx: number) => ({
+            id: d.id || idx,
+            origem: d.origem,
+            destino: d.destino,
+            data: d.data_partida,
+            hora_partida: d.hora_partida_estimada,
+            status: d.status || "programado",
+            descricao:
+              d.descricao_atividades ||
+              `Trecho de ${d.origem} para ${d.destino}`,
+          }))
+        );
+      }
+    };
+    fetchCalendar();
+  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [origem, setOrigem] = useState("");
