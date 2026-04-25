@@ -99,6 +99,8 @@ export default function Home() {
       }
     };
     loadRealData();
+    const interval = setInterval(loadRealData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

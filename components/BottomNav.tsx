@@ -3,14 +3,16 @@
 import { Home, Map, Shield, User } from "lucide-react";
 import { useState } from "react";
 
+import Link from "next/link";
+
 export function BottomNav() {
   const [activeTab, setActiveTab] = useState("home");
 
   const tabs = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "mapa", label: "Mapa", icon: Map },
-    { id: "garagem", label: "Garagem", icon: Shield },
-    { id: "perfil", label: "Perfil", icon: User },
+    { id: "home", label: "Home", icon: Home, path: "/" },
+    { id: "mapa", label: "Mapa", icon: Map, path: "/" },
+    { id: "garagem", label: "Garagem", icon: Shield, path: "/calendario" },
+    { id: "perfil", label: "Perfil", icon: User, path: "/admin" },
   ];
 
   return (
@@ -20,8 +22,9 @@ export function BottomNav() {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
-            <button
+            <Link
               key={tab.id}
+              href={tab.path}
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
                 isActive
@@ -33,7 +36,7 @@ export function BottomNav() {
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {tab.label}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>
