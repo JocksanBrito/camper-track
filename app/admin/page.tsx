@@ -29,14 +29,28 @@ export default function AdminDashboard() {
   const [recruits, setRecruits] = useState<any[]>([]);
   const [aiCommand, setAiCommand] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
 
   useEffect(() => {
+    setMounted(true);
     const fetchRecruits = async () => {
       const { data } = await supabase.from("tripulacao").select("*");
       if (data) setRecruits(data);
     };
+    const fetchKeys = async () => {
+      const { data } = await supabase.from("configuracoes_ia").select("*").limit(1).single();
+      if (data) {
+        setOpenaiKey(data.openai_key || "");
+        setGeminiKey(data.gemini_key || "");
+      }
+    };
     fetchRecruits();
+    fetchKeys();
   }, []);
+
+  if (!mounted) return null;
 
   // Carregar dados existentes do Supabase
   useEffect(() => {
@@ -481,6 +495,55 @@ export default function AdminDashboard() {
               ))}
           </div>
         )}
+      </div>
+      {/* Card 5: Configurações Técnicas (Chaves de IA) */}
+      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
+        <h2 className="text-xl font-black uppercase tracking-tighter text-zinc-400 flex items-center gap-2">
+          ⚙️ Configurações Técnicas
+        </h2>
+        <div className="flex flex-col gap-3 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase text-zinc-400">
+              OpenAI API Key
+            </label>
+            <input
+              type="password"
+              value={openaiKey}
+              onChange={(e) => setOpenaiKey(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs"
+              placeholder="sk-..."
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase text-zinc-400">
+              Gemini API Key
+            </label>
+            <input
+              type="password"
+              value={geminiKey}
+              onChange={(e) => setGeminiKey(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs"
+              placeholder="AIzaSy..."
+            />
+          </div>
+          <button
+            onClick={async () => {
+              const { error } = await supabase
+                .from("configuracoes_ia")
+                .upsert({
+                  id: "00000000-0000-0000-0000-000000000000",
+                  openai_key: openaiKey,
+                  gemini_key: geminiKey,
+                });
+              if (error)
+                toast.error(`Erro ao salvar chaves: ${error.message}`);
+              else toast.success("Chaves de API salvas com sucesso!");
+            }}
+            className="game-button bg-zinc-700 text-white font-bold w-full text-xs mt-2"
+          >
+            Salvar Chaves de API
+          </button>
+        </div>
       </div>
     </div>
   );
