@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
 
+import { toast } from "sonner";
+
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const router = useRouter();
@@ -15,7 +17,7 @@ export default function AdminLogin() {
     if (login(password)) {
       router.push("/admin");
     } else {
-      alert("Senha incorreta!");
+      toast.error("Senha incorreta!");
     }
   };
 

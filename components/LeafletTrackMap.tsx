@@ -167,6 +167,11 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
       <div className="absolute top-2 left-4 z-[1000] text-[10px] font-bold bg-zinc-900/80 px-2 py-0.5 rounded-full text-white uppercase tracking-wider">
         Modo: {style} {isManual ? "(Manual)" : "(Auto)"}
       </div>
+
+      <div className="absolute top-2 right-4 z-[1000] text-[10px] font-bold bg-zinc-900/80 px-3 py-1 rounded-full text-white uppercase tracking-wider flex items-center gap-1.5 border border-zinc-700">
+        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        <span>{Math.floor(Math.random() * 5) + 2} Espectadores</span>
+      </div>
     </div>
   );
 }

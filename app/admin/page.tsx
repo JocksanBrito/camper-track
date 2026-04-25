@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Zap, Coffee, Save, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Zap, Coffee, Save, User, Home as HomeIcon } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 export default function AdminDashboard() {
   const [status, setStatus] = useState<"traveling" | "stopped">("stopped");
@@ -18,22 +21,124 @@ export default function AdminDashboard() {
   const [driverName, setDriverName] = useState("Piloto");
   const [passengerName, setPassengerName] = useState("Copiloto");
 
-  const handleStart = () => {
-    setStatus("traveling");
-    alert("Missão Iniciada! Status: Em Viagem");
+  // Estados de Loading
+  const [savingMission, setSavingMission] = useState(false);
+  const [savingPerfil, setSavingPerfil] = useState(false);
+
+  // Carregar dados existentes do Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("perfil_viagem")
+          .select("*")
+          .limit(1)
+          .single();
+
+        if (data) {
+          setNomeCarro(data.nome_carro);
+          setAnoCarro(data.ano_carro);
+          setPaisAtual(data.pais_atual);
+          setDescricao(data.descricao_viagem);
+          setStatus(data.status_atual);
+          setLocal(data.local_atual);
+          setDestino(data.next_destination);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do Supabase:", err);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const handleStart = async () => {
+    setSavingMission(true);
+    console.log("Tentando salvar dados de Missão (Partida)...");
+    
+    const { data, error } = await supabase
+      .from("perfil_viagem")
+      .update({
+        status_atual: "traveling",
+        local_atual: local,
+        next_destination: destino,
+        updated_at: new Date().toISOString(),
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000"); // Alvo genérico para atualizar o único registro
+
+    console.log("Resposta do Banco (Missão):", error);
+
+    if (error) {
+      toast.error(`Erro: ${error.message}`);
+    } else {
+      setStatus("traveling");
+      toast.success("Missão Iniciada! Status: Em Viagem");
+    }
+    setSavingMission(false);
   };
 
-  const handleStop = () => {
-    setStatus("stopped");
-    alert("Check-in realizado! Status: Pit Stop");
+  const handleStop = async () => {
+    setSavingMission(true);
+    console.log("Tentando salvar dados de Missão (Chegada)...");
+
+    const { data, error } = await supabase
+      .from("perfil_viagem")
+      .update({
+        status_atual: "stopped",
+        local_atual: local,
+        next_destination: destino,
+        updated_at: new Date().toISOString(),
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    console.log("Resposta do Banco (Missão):", error);
+
+    if (error) {
+      toast.error(`Erro: ${error.message}`);
+    } else {
+      setStatus("stopped");
+      toast.success("Check-in realizado! Status: Pit Stop");
+    }
+    setSavingMission(false);
   };
 
-  const handleSaveConfig = () => {
-    alert("Configurações salvas com sucesso!");
+  const handleSaveConfig = async () => {
+    setSavingPerfil(true);
+    console.log("Tentando salvar dados do Perfil...");
+
+    const { data, error } = await supabase
+      .from("perfil_viagem")
+      .update({
+        nome_carro: nomeCarro,
+        ano_carro: anoCarro,
+        pais_atual: paisAtual,
+        descricao_viagem: descricao,
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+
+    console.log("Resposta do Banco (Perfil):", error);
+
+    if (error) {
+      toast.error(`Erro: ${error.message}`);
+    } else {
+      toast.success("Configurações salvas com sucesso!");
+    }
+    setSavingPerfil(false);
   };
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center justify-start p-4 pt-12 pb-24 gap-6">
+      {/* Botão Voltar */}
+      <div className="w-full max-w-md flex justify-start">
+        <Link
+          href="/"
+          className="game-button bg-zinc-800 text-white text-xs py-2 px-3 flex items-center gap-1.5"
+        >
+          <HomeIcon size={14} />
+          Voltar para o Mapa
+        </Link>
+      </div>
+
       {/* Card 1: Controle de Missão */}
       <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-6 max-w-md w-full">
         <h1 className="text-2xl font-black uppercase tracking-tighter text-center text-[var(--mario-blue)]">
@@ -43,18 +148,24 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={handleStart}
-            className="game-button bg-green-500 text-white hover:bg-green-600 flex flex-col items-center gap-2 py-4"
+            disabled={savingMission}
+            className="game-button bg-green-500 text-white hover:bg-green-600 flex flex-col items-center gap-2 py-4 disabled:opacity-50"
           >
             <Zap size={32} fill="currentColor" />
-            <span className="text-lg font-black uppercase">Partida</span>
+            <span className="text-lg font-black uppercase">
+              {savingMission ? "Salvando..." : "Partida"}
+            </span>
           </button>
 
           <button
             onClick={handleStop}
-            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 flex flex-col items-center gap-2 py-4"
+            disabled={savingMission}
+            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 flex flex-col items-center gap-2 py-4 disabled:opacity-50"
           >
             <Coffee size={32} />
-            <span className="text-lg font-black uppercase">Chegada</span>
+            <span className="text-lg font-black uppercase">
+              {savingMission ? "Salvando..." : "Chegada"}
+            </span>
           </button>
         </div>
 
@@ -145,9 +256,10 @@ export default function AdminDashboard() {
 
           <button
             onClick={handleSaveConfig}
-            className="game-button bg-[var(--mario-yellow)] text-black font-black w-full text-xs mt-2"
+            disabled={savingPerfil}
+            className="game-button bg-[var(--mario-yellow)] text-black font-black w-full text-xs mt-2 disabled:opacity-50"
           >
-            Salvar Perfil
+            {savingPerfil ? "Salvando..." : "Salvar Perfil"}
           </button>
         </div>
       </div>

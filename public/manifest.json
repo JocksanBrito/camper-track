@@ -1,0 +1,21 @@
+{
+  "name": "Camper Track",
+  "short_name": "CamperTrack",
+  "description": "Gerencie seu acampamento com estilo Game UI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121214",
+  "theme_color": "#E52521",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/pixel-art/svg?seed=camper",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/pixel-art/svg?seed=camper",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

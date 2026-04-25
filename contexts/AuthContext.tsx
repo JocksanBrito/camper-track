@@ -18,6 +18,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .split("; ")
       .find((row) => row.startsWith("admin-token="));
     setIsLoggedIn(!!token);
+
+    // Registro do Service Worker para PWA
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => console.log("SW registrado com sucesso:", reg.scope))
+        .catch((err) => console.error("Falha ao registrar SW:", err));
+    }
   }, []);
 
   const login = (password: string) => {
