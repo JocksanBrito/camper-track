@@ -181,28 +181,26 @@ export default function CalendarioDeMissao() {
             <form onSubmit={handleAddEvent} className="flex flex-col gap-3">
               <input
                 type="text"
-                placeholder="Origem"
+                placeholder="Ex: Potenza"
                 value={origem}
                 onChange={(e) => setOrigem(e.target.value)}
                 className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
               />
               <input
                 type="text"
-                placeholder="Destino"
+                placeholder="Ex: Fardella"
                 value={destino}
                 onChange={(e) => setDestino(e.target.value)}
                 className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
               />
               <input
-                type="text"
-                placeholder="Data"
+                type="date"
                 value={data}
                 onChange={(e) => setData(e.target.value)}
                 className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
               />
               <input
-                type="text"
-                placeholder="Hora"
+                type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
                 className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
