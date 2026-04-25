@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TravelLog } from "@/components/TravelLog";
 import { GameModal } from "@/components/GameModal";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function Home() {
   const { isLoggedIn, logout } = useAuth();
