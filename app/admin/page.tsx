@@ -24,6 +24,15 @@ export default function AdminDashboard() {
   // Estados de Loading
   const [savingMission, setSavingMission] = useState(false);
   const [savingPerfil, setSavingPerfil] = useState(false);
+  const [recruits, setRecruits] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchRecruits = async () => {
+      const { data } = await supabase.from("tripulacao").select("*");
+      if (data) setRecruits(data);
+    };
+    fetchRecruits();
+  }, []);
 
   // Carregar dados existentes do Supabase
   useEffect(() => {
@@ -312,6 +321,92 @@ export default function AdminDashboard() {
             Salvar Tripulação
           </button>
         </div>
+      </div>
+
+      {/* Card: Solicitações de Embarque */}
+      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
+        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-yellow)]">
+          Solicitações
+        </h2>
+
+        {recruits.filter((r) => r.status === "pendente").length === 0 ? (
+          <p className="text-xs text-zinc-400 font-bold text-center py-4">
+            Nenhuma solicitação pendente.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {recruits
+              .filter((r) => r.status === "pendente")
+              .map((rec) => (
+                <div
+                  key={rec.id}
+                  className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 flex flex-col gap-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-white">
+                      {rec.nome}
+                    </span>
+                    <span className="text-[10px] bg-yellow-500/20 text-yellow-500 font-bold px-2 py-0.5 rounded-full">
+                      Pendente
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={async () => {
+                        await supabase
+                          .from("tripulacao")
+                          .update({ status: "aprovado", role: "copiloto" })
+                          .eq("id", rec.id);
+                        toast.success("Aprovado como Copiloto!");
+                        setRecruits(
+                          recruits.map((r) =>
+                            r.id === rec.id
+                              ? { ...r, status: "aprovado", role: "copiloto" }
+                              : r
+                          )
+                        );
+                      }}
+                      className="game-button bg-green-500 text-white text-[9px] py-1 font-bold flex-1"
+                    >
+                      Copiloto
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await supabase
+                          .from("tripulacao")
+                          .update({ status: "aprovado", role: "passageiro" })
+                          .eq("id", rec.id);
+                        toast.success("Aprovado como Passageiro!");
+                        setRecruits(
+                          recruits.map((r) =>
+                            r.id === rec.id
+                              ? { ...r, status: "aprovado", role: "passageiro" }
+                              : r
+                          )
+                        );
+                      }}
+                      className="game-button bg-[var(--mario-blue)] text-white text-[9px] py-1 font-bold flex-1"
+                    >
+                      Passageiro
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await supabase
+                          .from("tripulacao")
+                          .delete()
+                          .eq("id", rec.id);
+                        toast.error("Recruta recusado.");
+                        setRecruits(recruits.filter((r) => r.id !== rec.id));
+                      }}
+                      className="game-button bg-[var(--mario-red)] text-white text-[9px] py-1 font-bold flex-1"
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );
