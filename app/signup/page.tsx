@@ -41,14 +41,6 @@ export default function SignUp() {
         return;
       }
 
-      if (data?.user) {
-        await supabase.from("tripulacao").insert({
-          user_id: data.user.id,
-          nome: name,
-          status: "pendente",
-        });
-      }
-
       toast.success(
         "Alistamento recebido! Aguarde a aprovação do Comandante Jocksan para embarcar. 🚐💨"
       );
