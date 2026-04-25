@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, Calendar, ArrowLeft, CheckCircle, Circle, MapPin, Plus } from "lucide-react";
+import { Clock, Calendar, ArrowLeft, CheckCircle, Circle, MapPin, Plus, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
