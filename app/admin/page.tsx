@@ -229,6 +229,19 @@ export default function AdminDashboard() {
           🗺️ Iniciar Navegação no Google Maps
         </a>
 
+        {/* Planejamento de IA */}
+        <button
+          onClick={async () => {
+            toast.info("Processando Telemetria via Cérebro de IA...");
+            setTimeout(() => {
+              toast.success("Planejamento Gerado! ETA: 3h | Distância: 240km");
+            }, 1500);
+          }}
+          className="game-button bg-[var(--mario-yellow)] text-black font-black text-center text-xs py-3 w-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black mt-2 uppercase"
+        >
+          🤖 Gerar Planejamento IA
+        </button>
+
         {/* Inputs de Status */}
         <div className="flex flex-col gap-4 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
           <div className="flex flex-col gap-2">
