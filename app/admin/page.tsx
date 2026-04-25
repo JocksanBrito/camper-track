@@ -113,9 +113,10 @@ export default function AdminDashboard() {
 
   const handleSaveConfig = async () => {
     setSavingPerfil(true);
-    console.log("Tentando salvar dados do Perfil...");
+    console.log("Tentando salvar dados do Perfil e Tripulação...");
 
-    const { data, error } = await supabase
+    // 1. Atualiza Perfil
+    const { error: errPerfil } = await supabase
       .from("perfil_viagem")
       .update({
         nome_carro: nomeCarro,
@@ -125,12 +126,24 @@ export default function AdminDashboard() {
       })
       .neq("id", "00000000-0000-0000-0000-000000000000");
 
-    console.log("Resposta do Banco (Perfil):", error);
+    // 2. Remove role copiloto anterior
+    await supabase
+      .from("tripulacao")
+      .update({ role: "viewer" })
+      .eq("role", "copiloto");
 
-    if (error) {
-      toast.error(`Erro: ${error.message}`);
+    // 3. Adiciona role copiloto no selecionado
+    if (passengerName) {
+      await supabase
+        .from("tripulacao")
+        .update({ role: "copiloto" })
+        .eq("id", passengerName);
+    }
+
+    if (errPerfil) {
+      toast.error(`Erro: ${errPerfil.message}`);
     } else {
-      toast.success("Configurações salvas com sucesso!");
+      toast.success("Perfil Atualizado com Sucesso!");
     }
     setSavingPerfil(false);
   };
@@ -179,9 +192,22 @@ export default function AdminDashboard() {
         </div>
 
         <a
-          href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(local)}&destination=${encodeURIComponent(destino)}`}
+          href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+            local
+          )}&destination=${encodeURIComponent(destino)}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={async () => {
+            toast.success("Iniciando navegação e sincronizando trajeto...");
+            await supabase
+              .from("perfil_viagem")
+              .update({
+                status_atual: "traveling",
+                local_atual: local,
+                next_destination: destino,
+              })
+              .neq("id", "00000000-0000-0000-0000-000000000000");
+          }}
           className="game-button bg-[var(--mario-blue)] text-white font-black text-center text-xs py-3 w-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black mt-2 uppercase flex items-center justify-center gap-2"
         >
           🗺️ Iniciar Navegação no Google Maps
@@ -306,12 +332,20 @@ export default function AdminDashboard() {
             <label className="text-[10px] font-bold uppercase text-zinc-400">
               Nome do Copiloto
             </label>
-            <input
-              type="text"
+            <select
               value={passengerName}
               onChange={(e) => setPassengerName(e.target.value)}
               className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
-            />
+            >
+              <option value="">Selecione um Copiloto</option>
+              {recruits
+                .filter((r) => r.status === "aprovado")
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.nome}
+                  </option>
+                ))}
+            </select>
           </div>
 
           <button

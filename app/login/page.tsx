@@ -35,6 +35,7 @@ export default function Login() {
 
       if (data.user) {
         document.cookie = "admin-token=true; path=/; max-age=31536000";
+        router.refresh();
         router.push("/");
       }
     } catch (err: any) {
