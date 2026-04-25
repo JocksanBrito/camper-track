@@ -15,7 +15,7 @@ export function CrewSection({ driver, passenger }: CrewSectionProps) {
   return (
     <div className="w-full glass-panel p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/50">
       <h3 className="text-xs font-black uppercase tracking-widest text-center mb-4 text-zinc-400">
-        Tripulação (Character Select)
+        Tripulação (Membros da Missão)
       </h3>
 
       <div className="grid grid-cols-2 gap-6">

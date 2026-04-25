@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Polyline, Marker, useMap } from "react-leaflet
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Layers, Crosshair, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 // Corrige problemas com os ícones padrão do Leaflet no Next.js
 const fixLeafletIcon = () => {
@@ -49,6 +50,36 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
   useEffect(() => {
     fixLeafletIcon();
   }, []);
+
+  const [roadPositions, setRoadPositions] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!points || points.length < 2) return;
+      try {
+        const coordsString = points.map((p) => `${p.lng},${p.lat}`).join(";");
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.routes && data.routes.length > 0) {
+          const routeCoords = data.routes[0].geometry.coordinates;
+          const mappedCoords = routeCoords.map(
+            (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+          );
+          setRoadPositions(mappedCoords);
+        } else {
+          setRoadPositions(points.map((p) => [p.lat, p.lng]));
+        }
+      } catch (error) {
+        console.error("Erro ao buscar rota OSRM:", error);
+        setRoadPositions(points.map((p) => [p.lat, p.lng]));
+      }
+    };
+
+    fetchRoute();
+  }, [points]);
 
   if (!points || points.length === 0) return null;
 
@@ -126,7 +157,7 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
         />
 
         <Polyline
-          positions={positions}
+          positions={roadPositions.length > 0 ? roadPositions : positions}
           pathOptions={{
             color: isNight ? "#22c55e" : "#3b82f6",
             weight: isNight ? 8 : 6,
@@ -183,7 +214,7 @@ function LocationButton({ points }: { points: Point[] }) {
 
   const handleLocationClick = () => {
     if (!navigator.geolocation) {
-      alert("Geolocalização não é suportada pelo seu navegador.");
+      toast.error("Geolocalização não é suportada pelo seu navegador.");
       return;
     }
 
@@ -198,7 +229,7 @@ function LocationButton({ points }: { points: Point[] }) {
       },
       (error) => {
         console.error("Erro ao obter localização:", error);
-        alert("Não foi possível obter sua localização.");
+        toast.error("Não foi possível obter sua localização.");
         setLoading(false);
       },
       { enableHighAccuracy: true }

@@ -1,5 +1,6 @@
 "use client";
-
+ 
+import { useState, useEffect } from "react";
 import { Trophy, Compass, Zap, Star, Settings, Plus } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
 import { TrackMap } from "@/components/TrackMap";
@@ -8,9 +9,13 @@ import { StatusBanner } from "@/components/StatusBanner";
 import { CrewSection } from "@/components/CrewSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { TravelLog } from "@/components/TravelLog";
+import { GameModal } from "@/components/GameModal";
+import { toast } from "sonner";
 
 export default function Home() {
   const { isLoggedIn, logout } = useAuth();
+  const [isCheckpointModalOpen, setIsCheckpointModalOpen] = useState(false);
+  const [newCheckpointName, setNewCheckpointName] = useState("");
 
   const totalDistance = 2500;
   const currentDistance = 1250;
@@ -78,30 +83,49 @@ export default function Home() {
         <Star size={48} fill="currentColor" />
       </div>
 
-      {/* Logout Button (para teste) */}
-      {isLoggedIn && (
-        <button
-          onClick={logout}
-          className="absolute top-4 right-4 z-50 bg-zinc-800 text-white text-xs px-2 py-1 rounded-lg border border-black shadow"
-        >
-          Sair
-        </button>
-      )}
+      {/* Top Navbar */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        {!isLoggedIn ? (
+          <>
+            <a
+              href="/login"
+              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
+            >
+              Login
+            </a>
+            <a
+              href="/signup"
+              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
+            >
+              Recrutar
+            </a>
+          </>
+        ) : (
+          <>
+            <a
+              href="/admin"
+              className="game-button bg-[var(--mario-yellow)] text-black text-[10px] px-2 py-1 font-bold"
+            >
+              Painel
+            </a>
+            <button
+              onClick={logout}
+              className="game-button bg-zinc-800 text-white text-[10px] px-2 py-1"
+            >
+              Sair
+            </button>
+          </>
+        )}
+      </div>
 
-      <main className="w-full max-w-md md:max-w-4xl flex flex-col items-center text-center gap-4 z-10 pt-4">
+      <main className="w-full max-w-md md:max-w-4xl flex flex-col items-center text-center gap-4 z-10 pt-12">
         {/* Header Dinâmico */}
         <div className="flex flex-col items-center gap-1 relative">
           <div className="bg-[var(--mario-red)] text-white font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-widest game-border flex items-center gap-1">
             {perfilViagem.nome_carro} {perfilViagem.ano_carro}
-            {isLoggedIn && <Settings size={12} className="cursor-pointer" />}
           </div>
-          <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter bg-gradient-to-r from-[var(--mario-red)] via-[var(--mario-yellow)] to-[var(--mario-green)] bg-clip-text text-transparent filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center gap-2">
+          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter bg-gradient-to-r from-[var(--mario-red)] via-[var(--mario-yellow)] to-[var(--mario-green)] bg-clip-text text-transparent filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center gap-2">
             {perfilViagem.nome_carro} {perfilViagem.pais_atual}
-            {isLoggedIn && (
-              <a href="/admin" title="Editar Perfil">
-                <Settings size={24} className="text-[var(--mario-yellow)] cursor-pointer hover:rotate-90 transition-all duration-300" />
-              </a>
-            )}
           </h1>
           <p className="text-xs text-zinc-400 px-4">
             {perfilViagem.descricao_viagem}
@@ -159,7 +183,7 @@ export default function Home() {
           {/* Botão flutuante (+) para o Viajante */}
           {isLoggedIn && (
             <button
-              onClick={() => alert("Adicionar novo trecho")}
+              onClick={() => setIsCheckpointModalOpen(true)}
               className="absolute bottom-20 left-4 z-[1000] bg-[var(--mario-green)] text-white p-3 rounded-full border-2 border-black shadow-lg hover:bg-green-600 active:scale-95 transition-all animate-pulse"
               title="Adicionar Checkpoint"
             >
@@ -169,7 +193,13 @@ export default function Home() {
         </div>
 
         {/* Log de Viagem Público */}
-        <div className="w-full">
+        <div className="w-full flex flex-col gap-3">
+          <Link
+            href="/diario"
+            className="game-button bg-[var(--mario-yellow)] text-black text-center font-black py-3 text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black uppercase tracking-tighter"
+          >
+            📸 Veja por onde passamos (Diário)
+          </Link>
           <TravelLog points={mockPoints} />
         </div>
 
@@ -178,6 +208,38 @@ export default function Home() {
           <Compass size={12} className="animate-spin [animation-duration:5s]" />
           Próximo checkpoint à vista
         </div>
+        <GameModal 
+          isOpen={isCheckpointModalOpen} 
+          onClose={() => setIsCheckpointModalOpen(false)} 
+          title="Novo Checkpoint"
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-zinc-400 font-bold">
+              Deseja registrar sua localização atual como um novo ponto na rota?
+            </p>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold uppercase text-zinc-400">Nome do Lugar</label>
+              <input 
+                type="text" 
+                placeholder="Ex: Posto Graal"
+                value={newCheckpointName}
+                onChange={(e) => setNewCheckpointName(e.target.value)}
+                className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white font-bold text-sm"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                toast.success(`Checkpoint "${newCheckpointName || 'Sem nome'}" salvo!`);
+                setIsCheckpointModalOpen(false);
+                setNewCheckpointName("");
+              }}
+              className="game-button bg-[var(--mario-green)] text-white w-full mt-2 text-xs"
+            >
+              Confirmar Checkpoint
+            </button>
+          </div>
+        </GameModal>
+
       </main>
 
       {/* Navegação Inferior */}
