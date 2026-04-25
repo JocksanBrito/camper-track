@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { supabase } from './lib/supabase';
 
@@ -9,24 +8,29 @@ export const config = {
 
 export async function middleware(request: NextRequest) {
   const res = NextResponse.next();
-  const supabaseClient = supabase; // Usar o cliente já inicializado
 
+  // Obter o usuário diretamente do cliente Supabase inicializado
   const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const publicPaths = ['/login', '/signup', '/'];
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/diario') ||
                             request.nextUrl.pathname.startsWith('/calendario') ||
                             request.nextUrl.pathname.startsWith('/admin');
 
-  if (isProtectedRoute && !session) {
+  if (isProtectedRoute && !user) {
     // Se a rota for protegida e o usuário não estiver logado, redireciona para /login
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Atualiza a sessão do usuário
-  await supabaseClient.auth.refreshSession();
+  if (publicPaths.includes(request.nextUrl.pathname) && user) {
+    // Se o usuário estiver logado e tentar acessar uma rota pública, redireciona para a home
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  // Atualiza a sessão do usuário e repassa os cookies
+  await supabase.auth.refreshSession();
 
   return res;
 }
