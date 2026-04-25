@@ -50,9 +50,6 @@ export default function AdminDashboard() {
     fetchKeys();
   }, []);
 
-  if (!mounted) return null;
-
-  // Carregar dados existentes do Supabase
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -79,62 +76,27 @@ export default function AdminDashboard() {
     loadData();
   }, []);
 
+  if (!mounted) return null;
+
   const handleStart = async () => {
     setSavingMission(true);
     console.log("Tentando salvar dados de Missão (Partida)...");
 
-    try {
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          local
-        )}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "CamperTrack-Agentic-App",
-          },
-        }
-      );
-      const geoData = await geoRes.json();
+    const { data, error } = await supabase
+      .from("perfil_viagem")
+      .update({
+        status_atual: "traveling",
+        local_atual: local,
+        next_destination: destino,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", "00000000-0000-0000-0000-000000000000");
 
-      if (!geoData || geoData.length === 0) {
-        toast.error(
-          "Localização não encontrada. Verifique o nome da cidade."
-        );
-        setSavingMission(false);
-        return;
-      }
-
-      const lat = parseFloat(geoData[0].lat);
-      const lon = parseFloat(geoData[0].lon);
-
-      // Salva ponto no histórico
-      await supabase.from("track_points").insert({
-        lat: lat,
-        lng: lon,
-        label: local,
-        timestamp: new Date().toISOString(),
-      });
-
-      const { data, error } = await supabase
-        .from("perfil_viagem")
-        .update({
-          status_atual: "traveling",
-          local_atual: local,
-          next_destination: destino,
-          updated_at: new Date().toISOString(),
-        })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-
-      if (error) {
-        toast.error(`Erro: ${error.message}`);
-      } else {
-        setStatus("traveling");
-        toast.success("Missão Iniciada! Ponto Geocodificado e Salvo 📍");
-      }
-    } catch (err) {
-      toast.error(
-        "Erro na Geocodificação. Verifique sua conexão com o mapa."
-      );
+    if (error) {
+      toast.error(`Erro: ${error.message}`);
+    } else {
+      setStatus("traveling");
+      toast.success("Missão Iniciada! 🚐💨");
     }
     setSavingMission(false);
   };
@@ -151,7 +113,7 @@ export default function AdminDashboard() {
         next_destination: destino,
         updated_at: new Date().toISOString(),
       })
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+      .eq("id", "00000000-0000-0000-0000-000000000000");
 
     console.log("Resposta do Banco (Missão):", error);
 
