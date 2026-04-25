@@ -1,9 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
+const rawUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+
+// Sanitização: Remove a barra '/' do final, se houver
+const supabaseUrl = rawUrl.endsWith("/") ? rawUrl.slice(0, -1) : rawUrl;
+
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
+
+console.log("Supabase Client Inicializado com URL:", supabaseUrl);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -15,7 +21,7 @@ export async function getPublicTrackPoints() {
   const { data, error } = await supabase
     .from("track_points")
     .select("*")
-    .eq("is_confirmed", true) // Filtro de Privacidade Total
+    .eq("is_confirmed", true)
     .order("timestamp", { ascending: true });
 
   if (error) {

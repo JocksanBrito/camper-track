@@ -16,21 +16,29 @@ export default function Login() {
     setLoading(true);
     setError("");
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    console.log("Tentando login no Supabase para o email:", email);
+    
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) {
+        console.error("Erro detalhado do Supabase Auth:", authError);
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        document.cookie = "admin-token=true; path=/; max-age=31536000";
+        router.push("/");
+      }
+    } catch (err: any) {
+      console.error("Erro fatal/NetworkError no Login:", err);
+      setError("Erro de conexão com o servidor. Verifique a URL do Supabase.");
       setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      // Define o cookie para o proxy/middleware
-      document.cookie = "admin-token=true; path=/; max-age=31536000";
-      router.push("/");
     }
   };
 
