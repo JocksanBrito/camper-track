@@ -5,10 +5,11 @@ import { Clock, Calendar, ArrowLeft, CheckCircle, Circle, MapPin, Plus } from "l
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 export default function CalendarioDeMissao() {
   const { isLoggedIn } = useAuth();
-  const [events] = useState<any[]>([
+  const [events, setEvents] = useState<any[]>([
     {
       id: 1,
       origem: "São Paulo",
@@ -30,6 +31,58 @@ export default function CalendarioDeMissao() {
       status: "programado",
     },
   ]);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [origem, setOrigem] = useState("");
+  const [destino, setDestino] = useState("");
+  const [data, setData] = useState("");
+  const [hora, setHora] = useState("");
+
+  const handleAddEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!origem || !destino || !data || !hora) {
+      toast.error("Preencha todos os campos!");
+      return;
+    }
+    const dbEvent = {
+      origem,
+      destino,
+      data_partida: data,
+      hora_partida_estimada: hora,
+      status: "programado",
+      descricao_atividades: `Trecho programado de ${origem} para ${destino}`,
+    };
+
+    supabase
+      .from("calendario_missao")
+      .insert([dbEvent])
+      .then(({ error }) => {
+        if (error) {
+          toast.error(`Erro ao salvar: ${error.message}`);
+        } else {
+          toast.success("Agendamento salvo no Supabase! 🚐💨");
+          setEvents([
+            ...events,
+            {
+              id: events.length + 1,
+              origem,
+              destino,
+              data,
+              hora_partida: hora,
+              status: "programado",
+              descricao: `Trecho de ${origem} para ${destino}`,
+            },
+          ]);
+        }
+      });
+
+    setIsModalOpen(false);
+    setOrigem("");
+    setDestino("");
+    setData("");
+    setHora("");
+    toast.success("Trecho agendado com sucesso! 🚐💨");
+  };
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center p-4 pt-12 pb-24 gap-6">
@@ -57,9 +110,7 @@ export default function CalendarioDeMissao() {
         {/* Adicionar evento (Admin) */}
         {isLoggedIn && (
           <button
-            onClick={() =>
-              toast.info("Funcionalidade em desenvolvimento no painel Admin.")
-            }
+            onClick={() => setIsModalOpen(true)}
             className="game-button bg-[var(--mario-green)] text-white w-full text-xs font-bold flex items-center justify-center gap-1.5 py-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
           >
             <Plus size={16} /> Adicionar Nova Programação
@@ -120,6 +171,61 @@ export default function CalendarioDeMissao() {
           })}
         </div>
       </main>
+      {/* Modal de Cadastro */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+          <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4">
+            <h2 className="text-xl font-black uppercase text-[var(--mario-yellow)]">
+              Novo Trecho
+            </h2>
+            <form onSubmit={handleAddEvent} className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="Origem"
+                value={origem}
+                onChange={(e) => setOrigem(e.target.value)}
+                className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
+              />
+              <input
+                type="text"
+                placeholder="Destino"
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
+              />
+              <input
+                type="text"
+                placeholder="Data"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
+              />
+              <input
+                type="text"
+                placeholder="Hora"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold"
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="submit"
+                  className="game-button bg-green-500 text-white font-bold py-2 text-xs flex-1"
+                >
+                  Salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="game-button bg-red-500 text-white font-bold py-2 text-xs flex-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
