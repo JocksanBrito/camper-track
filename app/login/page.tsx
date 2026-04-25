@@ -34,6 +34,20 @@ export default function Login() {
       }
 
       if (data.user) {
+        // Verifica aprovação
+        const { data: crewData } = await supabase
+          .from("tripulacao")
+          .select("status")
+          .eq("user_id", data.user.id)
+          .single();
+
+        if (crewData && crewData.status === "pendente") {
+          setError("Sua conta aguarda aprovação do Comandante.");
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
         document.cookie = "admin-token=true; path=/; max-age=31536000";
         router.refresh();
         router.push("/");
