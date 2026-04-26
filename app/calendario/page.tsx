@@ -5,19 +5,47 @@ import { Calendar, ArrowLeft, MapPin, Info } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/BottomNav";
+import { toast } from "sonner";
 
 export default function CalendarioDeMissao() {
   const [trips, setTrips] = useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userFuncao, setUserFuncao] = useState<string>("");
+
+  // Estados do Formulário de Agendamento
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [destino, setDestino] = useState("");
+  const [dataPartida, setDataPartida] = useState("");
+  const [dataChegadaPrevista, setDataChegadaPrevista] = useState("");
+  const [observacoes, setObservacoes] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const isCommand = userRole === "admin" || userFuncao === "copiloto";
 
   useEffect(() => {
     setIsMounted(true);
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase
+          .from("tripulacao")
+          .select("role, funcao_missao")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (prof) {
+          setUserRole(prof.role || "usuario");
+          setUserFuncao(prof.funcao_missao || "passageiro");
+        }
+      }
+    };
+    fetchUser();
+
     const fetchTrips = async () => {
-      const { data } = await supabase
-        .from("viagens")
-        .select("*");
-      if (data) setTrips(data.filter((v: any) => ['concluida', 'planejada', 'planejado'].includes(v.status)));
+      const { data } = await supabase.from("calendario_missao").select("*");
+      if (data) setTrips(data);
     };
     fetchTrips();
   }, []);
@@ -26,14 +54,14 @@ export default function CalendarioDeMissao() {
 
   // Calendário para Abril 2026 (30 dias, começa na Quarta-feira = 3)
   const daysInMonth = 30;
-  const startDayOfWeek = 3; 
+  const startDayOfWeek = 3;
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptySlots = Array.from({ length: startDayOfWeek }, (_, i) => i);
 
   const getTripForDay = (day: number) => {
-    return trips.find(t => {
-      if (t.created_at) {
-        const date = new Date(t.created_at);
+    return trips.find((t) => {
+      if (t.data_partida) {
+        const date = new Date(t.data_partida);
         return date.getDate() === day && date.getMonth() === 3; // Abril
       }
       return false;
@@ -41,10 +69,9 @@ export default function CalendarioDeMissao() {
   };
 
   const getDayClass = (trip: any) => {
-    if (!trip) return "border-zinc-800 bg-zinc-950/40 text-zinc-500 cursor-default";
-    if (trip.status === 'traveling') return "border-green-500 bg-green-500/20 text-white animate-pulse cursor-pointer hover:scale-105";
-    if (trip.status === 'concluida') return "border-yellow-600 bg-yellow-600/10 text-yellow-500 cursor-pointer hover:scale-105";
-    return "border-blue-500 bg-blue-500/20 text-blue-400 cursor-pointer hover:scale-105"; // Planejado
+    if (!trip)
+      return "border-zinc-800 bg-zinc-950/40 text-zinc-500 cursor-default";
+    return "border-green-500 bg-green-500/20 text-white cursor-pointer hover:scale-105 animate-pulse";
   };
 
   return (
@@ -60,31 +87,58 @@ export default function CalendarioDeMissao() {
 
       <main className="w-full max-w-xl flex flex-col items-center gap-6">
         <div className="flex flex-col items-center gap-1 text-center">
-          <Calendar size={48} className="text-[var(--mario-yellow)] animate-pulse" />
+          <Calendar
+            size={48}
+            className="text-[var(--mario-yellow)] animate-pulse"
+          />
           <h1 className="text-3xl font-black uppercase tracking-tighter text-[var(--mario-yellow)]">
             Calendário de Missão
           </h1>
-          <p className="text-xs text-zinc-400 font-bold uppercase">Planejamento e Execução</p>
+          <p className="text-xs text-zinc-400 font-bold uppercase">
+            Planejamento e Execução
+          </p>
         </div>
 
         <div className="w-full glass-panel p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/40 flex flex-col gap-4">
           <div className="text-center font-black text-sm uppercase tracking-wider text-[var(--mario-blue)] border-b border-zinc-800 pb-2">
             Abril 2026
           </div>
-          
+
           <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-zinc-500">
-            <span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SAB</span>
+            <span>DOM</span>
+            <span>SEG</span>
+            <span>TER</span>
+            <span>QUA</span>
+            <span>QUI</span>
+            <span>SEX</span>
+            <span>SAB</span>
           </div>
 
           <div className="grid grid-cols-7 gap-2">
-            {emptySlots.map(i => <div key={`empty-${i}`} className="h-10" />)}
-            {days.map(day => {
+            {emptySlots.map((i) => (
+              <div key={`empty-${i}`} className="h-10" />
+            ))}
+            {days.map((day) => {
               const trip = getTripForDay(day);
               return (
                 <button
                   key={day}
-                  onClick={() => trip && setSelectedTrip(trip)}
-                  className={`h-10 rounded-lg border-2 font-bold text-xs flex items-center justify-center transition-all ${getDayClass(trip)}`}
+                  onClick={() => {
+                    if (trip) {
+                      setSelectedTrip(trip);
+                    } else if (isCommand) {
+                      setSelectedDay(day);
+                      const paddedDay = String(day).padStart(2, "0");
+                      setDataPartida(`2026-04-${paddedDay}T10:00`);
+                      setDataChegadaPrevista(`2026-04-${paddedDay}T18:00`);
+                      setDestino("");
+                      setObservacoes("");
+                      setIsModalOpen(true);
+                    }
+                  }}
+                  className={`h-10 rounded-lg border-2 font-bold text-xs flex items-center justify-center transition-all ${getDayClass(
+                    trip
+                  )}`}
                 >
                   {day}
                 </button>
@@ -93,49 +147,161 @@ export default function CalendarioDeMissao() {
           </div>
         </div>
 
+        {/* Modal de Detalhes (Público) */}
         {selectedTrip && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
-            <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4 bg-zinc-900">
+            <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4 bg-zinc-900 text-left">
               <h2 className="text-xl font-black uppercase text-[var(--mario-yellow)] flex items-center gap-2">
-                <Info /> Próximos Passos
+                <Info /> Detalhes do Plano
               </h2>
               <div className="flex flex-col gap-2 bg-black/40 p-4 rounded-xl border border-zinc-800">
                 <div className="flex items-center gap-2 text-zinc-100 font-bold text-sm">
                   <MapPin size={16} className="text-[var(--mario-red)]" />
-                  <span>{selectedTrip.origem} ➔ {selectedTrip.destino}</span>
+                  <span>
+                    Destino: <strong>{selectedTrip.destino}</strong>
+                  </span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-zinc-400 font-bold mt-2">
-                  <span>Status: <strong className="uppercase">{selectedTrip.status}</strong></span>
-                  <span>Distância: {selectedTrip.distancia && selectedTrip.distancia.startsWith('[') ? 'Calculada' : selectedTrip.distancia}</span>
+                <div className="flex flex-col gap-1 text-xs text-zinc-400 font-bold mt-2">
+                  <span>
+                    🚀 Partida:{" "}
+                    {new Date(selectedTrip.data_partida).toLocaleString(
+                      "pt-BR"
+                    )}
+                  </span>
+                  {selectedTrip.data_chegada_prevista && (
+                    <span>
+                      🏁 Chegada Prevista:{" "}
+                      {new Date(
+                        selectedTrip.data_chegada_prevista
+                      ).toLocaleString("pt-BR")}
+                    </span>
+                  )}
                 </div>
-                {(() => {
-                  try {
-                    if (selectedTrip.distancia && selectedTrip.distancia.startsWith('[')) {
-                      const timeline = JSON.parse(selectedTrip.distancia);
-                      return (
-                        <div className="flex flex-col gap-1 mt-2 border-t border-zinc-800 pt-2 text-[9px] text-zinc-500 font-bold">
-                          {timeline.map((evt: any, eIdx: number) => (
-                            <div key={eIdx} className="flex justify-between gap-4 border-l-2 border-zinc-700 pl-2">
-                              <span className="uppercase text-[var(--mario-yellow)]">{evt.status}</span>
-                              <span className="text-zinc-400">{evt.local} • {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-                  } catch (e) {
-                    return null;
-                  }
-                  return null;
-                })()}
+                {selectedTrip.observacoes && (
+                  <div className="mt-2 border-t border-zinc-800 pt-2 text-xs text-zinc-300">
+                    <p className="text-[10px] text-zinc-500 uppercase font-black">
+                      Briefing:
+                    </p>
+                    <p className="mt-1 font-bold">
+                      {selectedTrip.observacoes}
+                    </p>
+                  </div>
+                )}
               </div>
-              <button 
-                onClick={() => setSelectedTrip(null)} 
+              <button
+                type="button"
+                onClick={() => setSelectedTrip(null)}
                 className="game-button bg-zinc-800 text-white font-bold py-2 text-xs"
               >
                 FECHAR
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Modal de Agendamento (Apenas Comando) */}
+        {isModalOpen && isCommand && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const { error } = await supabase
+                  .from("calendario_missao")
+                  .insert({
+                    destino,
+                    data_partida: dataPartida,
+                    data_chegada_prevista: dataChegadaPrevista,
+                    observacoes,
+                  });
+                setLoading(false);
+                if (error) {
+                  toast.error(error.message);
+                } else {
+                  toast.success("Destino Agendado com Sucesso!");
+                  setIsModalOpen(false);
+                  const { data } = await supabase
+                    .from("calendario_missao")
+                    .select("*");
+                  if (data) setTrips(data);
+                }
+              }}
+              className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4 bg-zinc-900 text-left"
+            >
+              <h2 className="text-xl font-black uppercase text-[var(--mario-green)] flex items-center gap-2">
+                <Calendar /> Agendar Parada
+              </h2>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase text-zinc-400">
+                  Destino
+                </label>
+                <input
+                  type="text"
+                  value={destino}
+                  onChange={(e) => setDestino(e.target.value)}
+                  required
+                  placeholder="Ex: Roma, Itália"
+                  className="bg-zinc-800 p-2 border-2 border-zinc-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase text-zinc-400">
+                  Data e Hora de Partida
+                </label>
+                <input
+                  type="datetime-local"
+                  value={dataPartida}
+                  onChange={(e) => setDataPartida(e.target.value)}
+                  required
+                  className="bg-zinc-800 p-2 border-2 border-zinc-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase text-zinc-400">
+                  Chegada Prevista
+                </label>
+                <input
+                  type="datetime-local"
+                  value={dataChegadaPrevista}
+                  onChange={(e) => setDataChegadaPrevista(e.target.value)}
+                  required
+                  className="bg-zinc-800 p-2 border-2 border-zinc-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase text-zinc-400">
+                  Observações / Briefing
+                </label>
+                <textarea
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  rows={3}
+                  placeholder="Notas sobre combustível, pedágios, etc."
+                  className="bg-zinc-800 p-2 border-2 border-zinc-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-green-500 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 game-button bg-zinc-800 text-white font-bold py-2 text-xs"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 game-button bg-[var(--mario-green)] text-white font-black py-2 text-xs border-2 border-black"
+                >
+                  {loading ? "SALVANDO..." : "AGENDAR"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>
