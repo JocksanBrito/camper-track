@@ -311,8 +311,8 @@ export default function DiarioDeBordo() {
           </button>
         )}
 
-        {/* Formulário de Postagem (Apenas Logados) */}
-        {isLoggedIn && (
+        {/* Formulário de Postagem (Apenas Admin/Copiloto) */}
+        {isLoggedIn && canManage && (
           <form className="w-full glass-panel p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/50 flex flex-col gap-3">
             <h3 className="text-sm font-black uppercase text-white flex items-center gap-2">
               <Upload size={16} /> Novo Registro

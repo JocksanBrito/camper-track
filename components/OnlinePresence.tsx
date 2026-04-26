@@ -17,7 +17,7 @@ export function OnlinePresence() {
         setUser(data.user);
         const { data: prof } = await supabase
           .from("tripulacao")
-          .select("nome, foto_url")
+          .select("nome, foto_url, role, funcao_missao")
           .eq("user_id", data.user.id)
           .maybeSingle();
         if (prof) setProfile(prof);
@@ -62,6 +62,8 @@ export function OnlinePresence() {
                 nome: profile?.nome || user.user_metadata?.full_name || "Tripulante",
                 foto_url: profile?.foto_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.id}`,
                 type: "member",
+                role: profile?.role || "usuario",
+                funcao: profile?.funcao_missao || "passageiro",
               }
             : {
                 user_id: "anon",
@@ -83,47 +85,79 @@ export function OnlinePresence() {
   const visitorsCount = onlineUsers.filter((u) => u.type === "visitor").length;
 
   return (
-    <div className="relative flex flex-col items-center">
+    <div className="flex flex-col items-center mt-2 mb-4 relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-zinc-900 border-2 border-black px-3 py-1.5 rounded-full text-[10px] font-black uppercase text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:scale-105 active:scale-95 transition-all"
+        className="flex items-center gap-3 bg-zinc-900/60 backdrop-blur-md border-2 border-zinc-800 px-4 py-2 rounded-full hover:border-zinc-700 transition-all active:scale-95 shadow-lg group"
       >
-        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        {onlineUsers.length} Online Agora
+        {/* Pulso Verde */}
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+        </span>
+
+        {/* Facepile de Avatares */}
+        {membersOnline.length > 0 && (
+          <div className="flex -space-x-2 overflow-hidden">
+            {membersOnline.slice(0, 5).map((u, idx) => (
+              u.foto_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={idx}
+                  className="inline-block h-6 w-6 rounded-full ring-2 ring-zinc-950 object-cover"
+                  src={u.foto_url}
+                  alt={u.nome}
+                  title={`${u.nome} (${u.role === 'admin' ? 'Piloto' : u.funcao === 'copiloto' ? 'Copiloto' : 'Passageiro'})`}
+                />
+              ) : (
+                <div
+                  key={idx}
+                  className="inline-block h-6 w-6 rounded-full ring-2 ring-zinc-950 bg-zinc-800 flex items-center justify-center text-[10px] font-black text-white"
+                  title={u.nome}
+                >
+                  {u.nome[0]}
+                </div>
+              )
+            ))}
+          </div>
+        )}
+
+        {/* Texto do Contador */}
+        <span className="text-xs font-bold text-zinc-300">
+          {membersOnline.length > 0 
+            ? `${membersOnline.length} Membro${membersOnline.length > 1 ? 's' : ''} Online`
+            : "Radar Ativo"}
+          {visitorsCount > 0 && ` + ${visitorsCount} espectador${visitorsCount > 1 ? 'es' : ''}`}
+        </span>
       </button>
 
-      {isOpen && (
-        <div className="absolute top-10 z-[50] bg-zinc-950 border-2 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-2 min-w-[200px] text-left">
+      {/* Dropdown de Detalhes */}
+      {isOpen && membersOnline.length > 0 && (
+        <div className="absolute mt-12 z-[50] bg-zinc-950 border-2 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-2 min-w-[220px]">
           <p className="text-[9px] font-black uppercase text-zinc-400 border-b border-zinc-800 pb-1 mb-1 flex items-center gap-1">
-            <Users size={12} /> Tripulantes Online ({membersOnline.length})
+            <Users size={12} /> Tripulantes Conectados
           </p>
           
-          {membersOnline.length === 0 ? (
-            <p className="text-[10px] text-zinc-600 font-bold italic">Nenhum membro logado.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {membersOnline.map((u, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  {u.foto_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={u.foto_url} alt={u.nome} className="w-6 h-6 rounded-full border border-black bg-zinc-800 object-cover" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-black flex items-center justify-center text-[10px] font-bold">
-                      {u.nome[0]}
-                    </div>
-                  )}
-                  <span className="text-xs font-bold text-white truncate max-w-[120px]">{u.nome}</span>
+          <div className="flex flex-col gap-2">
+            {membersOnline.map((u, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                {u.foto_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={u.foto_url} alt={u.nome} className="w-6 h-6 rounded-full border border-black bg-zinc-800 object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-zinc-800 border border-black flex items-center justify-center text-[10px] font-bold">
+                    {u.nome[0]}
+                  </div>
+                )}
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-bold text-white truncate max-w-[140px]">{u.nome}</span>
+                  <span className="text-[8px] font-black uppercase text-[var(--mario-yellow)]">
+                    {u.role === 'admin' ? 'Piloto' : u.funcao === 'copiloto' ? 'Copiloto' : 'Passageiro Virtual'}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {visitorsCount > 0 && (
-            <p className="text-[9px] font-black uppercase text-zinc-500 pt-1 border-t border-zinc-800 mt-1 flex justify-between">
-              <span>Visitantes:</span>
-              <span>{visitorsCount}</span>
-            </p>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

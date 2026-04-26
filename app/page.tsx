@@ -50,10 +50,22 @@ export default function Home() {
   });
 
   const [isClient, setIsClient] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userFuncao, setUserFuncao] = useState<string>("");
 
   useEffect(() => {
     setIsClient(true);
     const loadRealData = async () => {
+      // 0. Fetch User Permissions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase.from("tripulacao").select("role, funcao_missao").eq("user_id", user.id).maybeSingle();
+        if (prof) {
+          setUserRole(prof.role || "usuario");
+          setUserFuncao(prof.funcao_missao || "passageiro");
+        }
+      }
+
       // 1. Fetch Points
       const { data: pts } = await supabase
         .from("track_points")
@@ -192,13 +204,15 @@ export default function Home() {
               </>
             ) : (
               <>
-                <Link
-                  href="/admin"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="game-button bg-[var(--mario-yellow)] text-black text-xs py-1 text-center font-black"
-                >
-                  Painel
-                </Link>
+                {(userRole === 'admin' || userFuncao === 'copiloto') && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="game-button bg-[var(--mario-yellow)] text-black text-xs py-1 text-center font-black"
+                  >
+                    Painel
+                  </Link>
+                )}
                 <Link
                   href="/perfil"
                   onClick={() => setIsMenuOpen(false)}
@@ -243,9 +257,6 @@ export default function Home() {
             <img src={perfilViagem.foto_capa_url} alt="Capa da Missão" className="w-full h-full object-cover" />
           </div>
         )}
-        {/* Membros Online */}
-        <OnlinePresence />
-        
         {/* Header Dinâmico */}
         <div className="flex flex-col items-center gap-1 relative">
           <div className="bg-[var(--mario-red)] text-white font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-widest game-border flex items-center gap-1">
@@ -257,6 +268,9 @@ export default function Home() {
           <p className="text-xs text-zinc-400 px-4">
             {perfilViagem.descricao_viagem}
           </p>
+          
+          {/* Radar Unificado de Presença */}
+          <OnlinePresence />
         </div>
 
         {/* Barra de Progresso */}
@@ -294,7 +308,7 @@ export default function Home() {
         <div className="w-full relative">
           <TrackMap points={points} />
           {/* Botão flutuante (+) para o Viajante */}
-          {isLoggedIn && (
+          {isLoggedIn && (userRole === 'admin' || userFuncao === 'copiloto') && (
             <button
               onClick={() => setIsCheckpointModalOpen(true)}
               className="absolute bottom-20 left-4 z-[1000] bg-[var(--mario-green)] text-white p-3 rounded-full border-2 border-black shadow-lg hover:bg-green-600 active:scale-95 transition-all animate-pulse"

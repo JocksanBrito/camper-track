@@ -67,7 +67,22 @@ export default function AdminDashboard() {
           if (prof) {
             setUserRole(prof.role);
             setUserFuncao(prof.funcao_missao);
+            
+            const canManage = prof.role === 'admin' || prof.funcao_missao === 'copiloto';
+            if (!canManage) {
+              toast.error("Acesso negado: Somente Piloto e Copiloto podem acessar o Painel de Comando.");
+              router.push("/");
+              return;
+            }
+          } else {
+            toast.error("Acesso negado: Somente Piloto e Copiloto podem acessar o Painel de Comando.");
+            router.push("/");
+            return;
           }
+        } else {
+          toast.error("Acesso negado: Efetue o login.");
+          router.push("/login");
+          return;
         }
 
         // 2. Carregar Perfil de Viagem Real

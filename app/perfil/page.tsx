@@ -225,12 +225,19 @@ export default function PerfilPage() {
           <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800 text-xs">
             <span className="font-bold text-zinc-500 uppercase">Status</span>
             <div className="flex gap-2">
-              <span className="font-black uppercase text-[var(--mario-yellow)] flex items-center gap-1 bg-zinc-900 px-2 py-1 rounded-md border border-zinc-700">
-                <Shield size={10} /> {profile?.role || "Usuário"}
-              </span>
-              <span className="font-black uppercase text-green-500 bg-zinc-900 px-2 py-1 rounded-md border border-zinc-700">
-                {profile?.funcao_missao || "Passageiro"}
-              </span>
+              {profile?.role === 'admin' ? (
+                <span className="font-black uppercase text-[var(--mario-red)] flex items-center gap-1 bg-zinc-900 px-2 py-1 rounded-md border border-zinc-700">
+                  <Shield size={10} /> PILOTO
+                </span>
+              ) : profile?.funcao_missao === 'copiloto' ? (
+                <span className="font-black uppercase text-[var(--mario-yellow)] flex items-center gap-1 bg-zinc-900 px-2 py-1 rounded-md border border-zinc-700">
+                  <Shield size={10} /> COPILOTO
+                </span>
+              ) : (
+                <span className="font-black uppercase text-zinc-400 flex items-center gap-1 bg-zinc-900 px-2 py-1 rounded-md border border-zinc-700">
+                  <Shield size={10} /> PASSAGEIRO VIRTUAL
+                </span>
+              )}
             </div>
           </div>
 

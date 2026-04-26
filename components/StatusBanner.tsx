@@ -22,29 +22,9 @@ export function StatusBanner({
     "traveling" | "stopped" | "sleeping"
   >(status);
 
-  const [onlineCount, setOnlineCount] = useState(1);
 
-  useEffect(() => {
-    const channel = supabase.channel("online-users", {
-      config: { presence: { key: "user" } },
-    });
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const totalOnline = Object.keys(state).length;
-        setOnlineCount(totalOnline > 0 ? totalOnline : 1);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({ online_at: new Date().toISOString() });
-        }
-      });
 
-    return () => {
-      channel.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     const calculateTime = () => {
@@ -135,10 +115,7 @@ export function StatusBanner({
       </div>
 
       <div className="flex flex-col items-end gap-1 text-right">
-        <div className="flex items-center gap-1 text-[9px] bg-green-500/20 text-green-400 font-black uppercase px-2 py-0.5 rounded-full border border-green-500/30 animate-pulse">
-          <Users size={10} fill="currentColor" />
-          <span>{onlineCount} Online</span>
-        </div>
+
         <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-bold uppercase">
           <Clock size={12} />
           <span>{timeElapsed}</span>
