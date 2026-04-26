@@ -327,40 +327,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Vitrine de Próximas Paradas */}
-        {nextStops.length > 0 && (
-          <div className="w-full glass-panel p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/50 flex flex-col gap-3">
-            <h3 className="text-sm font-black uppercase text-[var(--mario-yellow)] flex items-center gap-2">
-              <Calendar size={16} /> Próximas Paradas
-            </h3>
-            
-            <div className="flex flex-col gap-2">
-              {nextStops.slice(0, 4).map((stop, idx) => (
-                <div key={idx} className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-zinc-800">
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-white uppercase">{stop.destino}</span>
-                    <span className="text-[10px] text-zinc-400 font-mono">Partida: {new Date(stop.data_partida).toLocaleDateString('pt-BR')} {new Date(stop.data_partida).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
-                  </div>
-                  {stop.origem && (
-                    <span className="text-[8px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full uppercase border border-zinc-700">
-                      Saída: {stop.origem}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {nextStops.length > 4 && (
-              <Link
-                href="/calendario"
-                className="text-center text-xs font-black uppercase text-[var(--mario-blue)] hover:underline mt-1 flex justify-center items-center gap-1"
-              >
-                Ver todas as paradas no Calendário ➔
-              </Link>
-            )}
-          </div>
-        )}
-
         {/* Log de Viagem Público */}
         <div className="w-full flex flex-col gap-3">
           <Link

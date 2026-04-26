@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 export function TravelLog() {
   const [viagens, setViagens] = useState<any[]>([]);
@@ -146,7 +147,16 @@ export function TravelLog() {
           ))}
         </div>
       )}
-
+      {planejadas.length > 0 && (
+        <div className="mt-3 text-center border-t border-zinc-800 pt-2">
+          <Link
+            href="/calendario"
+            className="text-center text-xs font-black uppercase text-[var(--mario-blue)] hover:underline flex justify-center items-center gap-1"
+          >
+            Ver cronograma completo no Calendário ➔
+          </Link>
+        </div>
+      )}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
