@@ -23,7 +23,7 @@ export default function CalendarioDeMissao() {
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isCommand = userRole === "admin" || userFuncao === "copiloto";
+  const canEdit = userRole === "admin" || userFuncao === "copiloto";
 
   useEffect(() => {
     setIsMounted(true);
@@ -126,7 +126,7 @@ export default function CalendarioDeMissao() {
                   onClick={() => {
                     if (trip) {
                       setSelectedTrip(trip);
-                    } else if (isCommand) {
+                    } else if (canEdit) {
                       setSelectedDay(day);
                       const paddedDay = String(day).padStart(2, "0");
                       setDataPartida(`2026-04-${paddedDay}T10:00`);
@@ -200,7 +200,7 @@ export default function CalendarioDeMissao() {
         )}
 
         {/* Modal de Agendamento (Apenas Comando) */}
-        {isModalOpen && isCommand && (
+        {isModalOpen && canEdit && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
             <form
               onSubmit={async (e) => {
@@ -219,6 +219,10 @@ export default function CalendarioDeMissao() {
                   toast.error(error.message);
                 } else {
                   toast.success("Destino Agendado com Sucesso!");
+                  setDestino("");
+                  setDataPartida("");
+                  setDataChegadaPrevista("");
+                  setObservacoes("");
                   setIsModalOpen(false);
                   const { data } = await supabase
                     .from("calendario_missao")
