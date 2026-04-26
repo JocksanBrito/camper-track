@@ -10,6 +10,7 @@ import { CrewSection } from "@/components/CrewSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { TravelLog } from "@/components/TravelLog";
 import { GameModal } from "@/components/GameModal";
+import { OnlinePresence } from "@/components/OnlinePresence";
 import { toast } from "sonner";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -242,6 +243,8 @@ export default function Home() {
             <img src={perfilViagem.foto_capa_url} alt="Capa da Missão" className="w-full h-full object-cover" />
           </div>
         )}
+        {/* Membros Online */}
+        <OnlinePresence />
         
         {/* Header Dinâmico */}
         <div className="flex flex-col items-center gap-1 relative">

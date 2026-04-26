@@ -56,8 +56,7 @@ export default function Login() {
       // 4. Sucesso: Setar cookie e redirecionar
       document.cookie = "admin-token=true; path=/; max-age=31536000";
       
-      router.refresh();
-      router.push("/");
+      window.location.href = "/";
       
     } catch (err: any) {
       if (process.env.NODE_ENV === 'development') {

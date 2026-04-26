@@ -74,7 +74,7 @@ export default function PerfilPage() {
         .eq('user_id', user.id)
         .select();
       
-      console.log("Resultado do Update (Upload):", { data: updateData, error: updateError });
+
 
       if (updateError) throw updateError;
       toast.success("Foto de perfil atualizada!");
@@ -120,17 +120,11 @@ export default function PerfilPage() {
         funcao_missao: profile?.funcao_missao || 'passageiro',
       };
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Payload sendo enviado:", payload);
-      }
-
       const { data: updateData, error: profError } = await supabase
         .from("tripulacao")
         .update(payload)
         .eq('user_id', user.id)
         .select();
-      
-      console.log("Resultado do Update (Save):", { data: updateData, error: profError });
 
       if (profError) throw profError;
 
@@ -155,7 +149,7 @@ export default function PerfilPage() {
     await supabase.auth.signOut();
     document.cookie = "admin-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     toast.success("Sessão encerrada.");
-    router.push("/");
+    window.location.href = "/";
   };
 
   if (loading) {

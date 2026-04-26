@@ -706,22 +706,26 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={async () => {
+                      const toastId = toast.loading("Processando aprovação...");
                       const { error } = await supabase.from("tripulacao").update({ status: 'aprovado', role: 'usuario', funcao_missao: 'passageiro' }).eq('user_id', rec.user_id);
+                      toast.dismiss(toastId);
                       if (error) {
-                        console.error("Erro detalhado:", JSON.stringify(error, null, 2));
                         toast.error(error.message);
                       } else {
                         toast.success("Aprovado!");
+                        setRecruits(prev => prev.filter(r => r.user_id !== rec.user_id));
                         router.refresh();
                       }
                     }} className="flex-1 bg-green-600 p-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1"><CheckCircle size={14} /> Aprovar</button>
                     <button onClick={async () => {
+                      const toastId = toast.loading("Processando recusa...");
                       const { error } = await supabase.from("tripulacao").delete().eq('user_id', rec.user_id);
+                      toast.dismiss(toastId);
                       if (error) {
-                        console.error("Erro detalhado:", JSON.stringify(error, null, 2));
                         toast.error(error.message);
                       } else {
-                        toast.error("Recusado.");
+                        toast.success("Recusado.");
+                        setRecruits(prev => prev.filter(r => r.user_id !== rec.user_id));
                         router.refresh();
                       }
                     }} className="bg-red-600 p-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1"><Trash2 size={14} /> Rejeitar</button>

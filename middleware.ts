@@ -29,8 +29,7 @@ export async function middleware(request: NextRequest) {
   const { data, error } = await supabase.auth.getUser()
   const user = data?.user
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/diario') ||
-                          request.nextUrl.pathname.startsWith('/calendario') ||
+  const isProtectedRoute = request.nextUrl.pathname.startsWith('/calendario') ||
                           request.nextUrl.pathname.startsWith('/admin')
 
   if (isProtectedRoute && !user) {
@@ -41,5 +40,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/diario/:path*', '/calendario/:path*', '/admin/:path*'],
+  matcher: ['/calendario/:path*', '/admin/:path*'],
 }
