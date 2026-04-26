@@ -23,6 +23,7 @@ export default function CalendarioDeMissao() {
   const [dataChegadaPrevista, setDataChegadaPrevista] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<any>(null);
 
   const canEdit = userRole === "admin" || userFuncao === "copiloto";
 
@@ -189,13 +190,33 @@ export default function CalendarioDeMissao() {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedTrip(null)}
-                className="game-button bg-zinc-800 text-white font-bold py-2 text-xs"
-              >
-                FECHAR
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTrip(null)}
+                  className="flex-1 game-button bg-zinc-800 text-white font-bold py-2 text-xs"
+                >
+                  FECHAR
+                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTrip(selectedTrip);
+                      setOrigem(selectedTrip.origem || "");
+                      setDestino(selectedTrip.destino || "");
+                      setDataPartida(selectedTrip.data_partida ? selectedTrip.data_partida.substring(0, 16) : "");
+                      setDataChegadaPrevista(selectedTrip.data_chegada_prevista ? selectedTrip.data_chegada_prevista.substring(0, 16) : "");
+                      setObservacoes(selectedTrip.observacoes || "");
+                      setIsModalOpen(true);
+                      setSelectedTrip(null);
+                    }}
+                    className="flex-1 game-button bg-[var(--mario-yellow)] text-black font-black py-2 text-xs border-2 border-black"
+                  >
+                    EDITAR
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -207,25 +228,42 @@ export default function CalendarioDeMissao() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 setLoading(true);
-                const { error } = await supabase
-                  .from("calendario_missao")
-                  .insert({
-                    origem,
-                    destino,
-                    data_partida: dataPartida,
-                    data_chegada_prevista: dataChegadaPrevista,
-                    observacoes,
-                  });
+                let error;
+                if (editingTrip) {
+                  const { error: err } = await supabase
+                    .from("calendario_missao")
+                    .update({
+                      origem,
+                      destino,
+                      data_partida: dataPartida,
+                      data_chegada_prevista: dataChegadaPrevista,
+                      observacoes,
+                    })
+                    .eq("id", editingTrip.id);
+                  error = err;
+                } else {
+                  const { error: err } = await supabase
+                    .from("calendario_missao")
+                    .insert({
+                      origem,
+                      destino,
+                      data_partida: dataPartida,
+                      data_chegada_prevista: dataChegadaPrevista,
+                      observacoes,
+                    });
+                  error = err;
+                }
                 setLoading(false);
                 if (error) {
                   toast.error(error.message);
                 } else {
-                  toast.success("Destino Agendado com Sucesso!");
+                  toast.success(editingTrip ? "Plano Atualizado!" : "Destino Agendado!");
                   setOrigem("");
                   setDestino("");
                   setDataPartida("");
                   setDataChegadaPrevista("");
                   setObservacoes("");
+                  setEditingTrip(null);
                   setIsModalOpen(false);
                   const { data } = await supabase
                     .from("calendario_missao")
@@ -236,7 +274,7 @@ export default function CalendarioDeMissao() {
               className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4 bg-zinc-900 text-left"
             >
               <h2 className="text-xl font-black uppercase text-[var(--mario-green)] flex items-center gap-2">
-                <Calendar /> Agendar Parada
+                <Calendar /> {editingTrip ? "Editar Parada" : "Agendar Parada"}
               </h2>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold uppercase text-zinc-400">
