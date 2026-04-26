@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, ArrowLeft, MapPin, Info } from "lucide-react";
+import { Calendar, ArrowLeft, MapPin, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/BottomNav";
@@ -24,6 +24,7 @@ export default function CalendarioDeMissao() {
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
   const [editingTrip, setEditingTrip] = useState<any>(null);
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 1)); // Abril 2026
 
   const canEdit = userRole === "admin" || userFuncao === "copiloto";
 
@@ -54,17 +55,25 @@ export default function CalendarioDeMissao() {
 
   if (!isMounted) return null;
 
-  // Calendário para Abril 2026 (30 dias, começa na Quarta-feira = 3)
-  const daysInMonth = 30;
-  const startDayOfWeek = 3;
+  // Calendário dinâmico baseado em currentDate
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDayOfWeek = new Date(year, month, 1).getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptySlots = Array.from({ length: startDayOfWeek }, (_, i) => i);
+
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
 
   const getTripForDay = (day: number) => {
     return trips.find((t) => {
       if (t.data_partida) {
         const date = new Date(t.data_partida);
-        return date.getDate() === day && date.getMonth() === 3; // Abril
+        return date.getDate() === day && date.getMonth() === month && date.getFullYear() === year;
       }
       return false;
     });
@@ -102,8 +111,24 @@ export default function CalendarioDeMissao() {
         </div>
 
         <div className="w-full glass-panel p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/40 flex flex-col gap-4">
-          <div className="text-center font-black text-sm uppercase tracking-wider text-[var(--mario-blue)] border-b border-zinc-800 pb-2">
-            Abril 2026
+          <div className="flex justify-between items-center font-black text-sm uppercase tracking-wider text-[var(--mario-blue)] border-b border-zinc-800 pb-2">
+            <button 
+              type="button" 
+              onClick={() => setCurrentDate(new Date(year, month - 1, 1))} 
+              className="hover:text-white transition-all p-1 bg-zinc-800 rounded border border-zinc-700"
+              title="Mês Anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-mono">{monthNames[month]} {year}</span>
+            <button 
+              type="button" 
+              onClick={() => setCurrentDate(new Date(year, month + 1, 1))} 
+              className="hover:text-white transition-all p-1 bg-zinc-800 rounded border border-zinc-700"
+              title="Próximo Mês"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
 
           <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black text-zinc-500">
@@ -131,8 +156,10 @@ export default function CalendarioDeMissao() {
                     } else if (canEdit) {
                       setSelectedDay(day);
                       const paddedDay = String(day).padStart(2, "0");
-                      setDataPartida(`2026-04-${paddedDay}T10:00`);
-                      setDataChegadaPrevista(`2026-04-${paddedDay}T18:00`);
+                      const paddedMonth = String(month + 1).padStart(2, "0");
+                      setDataPartida(`${year}-${paddedMonth}-${paddedDay}T10:00`);
+                      setDataChegadaPrevista(`${year}-${paddedMonth}-${paddedDay}T18:00`);
+                      setOrigem("");
                       setDestino("");
                       setObservacoes("");
                       setIsModalOpen(true);

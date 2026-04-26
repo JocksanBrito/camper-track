@@ -27,6 +27,8 @@ export function TravelLog() {
     e.currentTarget.scrollTop = scrollTop - walk;
   };
 
+  const [planejadas, setPlanejadas] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchViagens = async () => {
       const { data } = await supabase
@@ -41,6 +43,14 @@ export function TravelLog() {
         });
         setViagens(sorted.slice(0, 5));
       }
+
+      const { data: cal } = await supabase
+        .from("calendario_missao")
+        .select("*")
+        .order("data_partida", { ascending: true });
+      if (cal) {
+        setPlanejadas(cal);
+      }
     };
     fetchViagens();
   }, []);
@@ -48,10 +58,10 @@ export function TravelLog() {
   return (
     <div className="w-full glass-panel p-4 rounded-xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/50">
       <h3 className="text-xs font-black uppercase tracking-widest text-center mb-4 text-zinc-400">
-        Log de Viagem (Ativas/Planejadas)
+        Log de viagem em tempo real
       </h3>
 
-      {viagens.length === 0 ? (
+      {viagens.length === 0 && planejadas.length === 0 ? (
         <p className="text-center text-xs text-zinc-500 py-4 font-bold">
           Nenhuma viagem em andamento ou planejada.
         </p>
@@ -104,6 +114,33 @@ export function TravelLog() {
               </div>
               <span className="ml-auto text-[10px] bg-zinc-700 px-2 py-0.5 rounded-full text-zinc-300 font-bold border border-black">
                 #{index + 1}
+              </span>
+            </div>
+          ))}
+          {planejadas.map((plano, index) => (
+            <div
+              key={`plano-${plano.id}`}
+              className="flex items-center gap-3 bg-zinc-800/50 p-2 rounded-xl border-2 border-black"
+            >
+              <div className="text-black p-2 rounded-full border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] bg-[#FACC15]">
+                <MapPin size={16} />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-bold text-white flex items-center gap-2">
+                  {plano.origem ? `${plano.origem} ➔ ` : ""}{plano.destino}
+                  <span className="text-[8px] bg-[#FACC15]/20 px-1.5 py-0.5 rounded font-black text-[#FACC15] border border-[#FACC15]/50 uppercase">PLANEJADA</span>
+                </span>
+                <span className="text-[10px] text-zinc-400 font-medium font-mono">
+                  Partida: {new Date(plano.data_partida).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+                {plano.observacoes && (
+                  <p className="text-[9px] text-zinc-400 mt-1 italic border-t border-zinc-800 pt-1">
+                    "{plano.observacoes}"
+                  </p>
+                )}
+              </div>
+              <span className="ml-auto text-[10px] bg-zinc-700 px-2 py-0.5 rounded-full text-zinc-300 font-bold border border-black">
+                P-{index + 1}
               </span>
             </div>
           ))}
