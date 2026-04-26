@@ -17,6 +17,7 @@ export default function CalendarioDeMissao() {
   // Estados do Formulário de Agendamento
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
   const [dataPartida, setDataPartida] = useState("");
   const [dataChegadaPrevista, setDataChegadaPrevista] = useState("");
@@ -209,6 +210,7 @@ export default function CalendarioDeMissao() {
                 const { error } = await supabase
                   .from("calendario_missao")
                   .insert({
+                    origem,
                     destino,
                     data_partida: dataPartida,
                     data_chegada_prevista: dataChegadaPrevista,
@@ -219,6 +221,7 @@ export default function CalendarioDeMissao() {
                   toast.error(error.message);
                 } else {
                   toast.success("Destino Agendado com Sucesso!");
+                  setOrigem("");
                   setDestino("");
                   setDataPartida("");
                   setDataChegadaPrevista("");
@@ -235,7 +238,19 @@ export default function CalendarioDeMissao() {
               <h2 className="text-xl font-black uppercase text-[var(--mario-green)] flex items-center gap-2">
                 <Calendar /> Agendar Parada
               </h2>
-
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase text-zinc-400">
+                  Ponto de Partida (Origem)
+                </label>
+                <input
+                  type="text"
+                  value={origem}
+                  onChange={(e) => setOrigem(e.target.value)}
+                  required
+                  placeholder="Ex: Potenza, Itália"
+                  className="bg-zinc-800 p-2 border-2 border-zinc-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold uppercase text-zinc-400">
                   Destino
