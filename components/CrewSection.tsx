@@ -21,8 +21,7 @@ export function CrewSection({ driver, passenger }: CrewSectionProps) {
       <div className="grid grid-cols-2 gap-6">
         {/* Motorista */}
         <div className="flex flex-col items-center gap-2 group cursor-pointer">
-          <div className="relative w-20 h-20 rounded-full border-4 border-[var(--mario-red)] overflow-hidden shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] group-hover:scale-105 transition-all">
-            <div className="absolute inset-0 bg-gradient-to-b from-red-500/20 to-red-500/50" />
+          <div className="relative w-20 h-20 rounded-full border-2 border-[var(--mario-red)] overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:scale-105 transition-all">
             <img
               src={
                 driver.avatar ||
@@ -42,8 +41,7 @@ export function CrewSection({ driver, passenger }: CrewSectionProps) {
 
         {/* Passageiro */}
         <div className="flex flex-col items-center gap-2 group cursor-pointer">
-          <div className="relative w-20 h-20 rounded-full border-4 border-[var(--mario-blue)] overflow-hidden shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] group-hover:scale-105 transition-all">
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/20 to-blue-500/50" />
+          <div className="relative w-20 h-20 rounded-full border-2 border-[var(--mario-blue)] overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] group-hover:scale-105 transition-all">
             <img
               src={
                 passenger.avatar ||

@@ -88,13 +88,13 @@ export function StatusBanner({
 
   const stateConfig = {
     traveling: {
-      title: "Na Estrada",
+      title: "VIAJANDO AGORA",
       desc: `Destino: ${nextDestination || "Próximo Checkpoint"}`,
       icon: Zap,
-      color: "bg-[var(--mario-red)]",
+      color: "bg-green-500 animate-pulse",
     },
     stopped: {
-      title: "Pit Stop",
+      title: "ESTACIONADO / PIT STOP",
       desc: `Parados em: ${currentLocation}`,
       icon: Coffee,
       color: "bg-[var(--mario-blue)]",
@@ -128,6 +128,9 @@ export function StatusBanner({
             {currentConfig.title}
           </span>
           <span className="text-xs text-zinc-300">{currentConfig.desc}</span>
+          {status === 'traveling' && (
+            <span className="text-[10px] text-[var(--mario-yellow)] font-black uppercase mt-0.5">Início: {new Date(updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Zap, Coffee, Save, User, Home as HomeIcon } from "lucide-react";
+import { Zap, Coffee, Save, User, Home as HomeIcon, Settings, BrainCircuit, Users, ShieldCheck, Trash2, CheckCircle, Map as MapIcon, Key, XCircle, History } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -9,516 +9,762 @@ import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [status, setStatus] = useState<"traveling" | "stopped">("stopped");
+
+  // IDs REAIS DO SISTEMA
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [iaConfigId, setIaConfigId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userFuncao, setUserFuncao] = useState<string | null>(null);
+
+  // ESTADOS DE MISSÃO
+  const [status, setStatus] = useState<"traveling" | "stopped" | "pitstop" | "canceled">("stopped");
   const [local, setLocal] = useState("");
   const [destino, setDestino] = useState("");
 
-  // Configurações do Carro
-  const [nomeCarro, setNomeCarro] = useState("Camper");
-  const [anoCarro, setAnoCarro] = useState("2026");
-  const [paisAtual, setPaisAtual] = useState("Brasil");
-  const [descricao, setDescricao] = useState("Expedição pelo coração do Brasil.");
+  // CONFIGURAÇÕES DO VEÍCULO (ELEVAN)
+  const [nomeCarro, setNomeCarro] = useState("");
+  const [anoCarro, setAnoCarro] = useState("");
+  const [paisAtual, setPaisAtual] = useState("");
+  const [descricao, setDescricao] = useState("");
 
-  // Tripulação
-  const [driverName, setDriverName] = useState("Piloto");
-  const [passengerName, setPassengerName] = useState("Copiloto");
-
-  // Estados de Loading
-  const [savingMission, setSavingMission] = useState(false);
-  const [savingPerfil, setSavingPerfil] = useState(false);
+  // GESTÃO DE TRIPULAÇÃO (MOTORISTA, COPILOTO, PASSAGEIRO)
+  const [driverId, setDriverId] = useState("");
+  const [passengerId, setPassengerId] = useState("");
   const [recruits, setRecruits] = useState<any[]>([]);
-  const [aiCommand, setAiCommand] = useState("");
-  const [loadingAI, setLoadingAI] = useState(false);
-  const [mounted, setMounted] = useState(false);
+
+  // NÚCLEO DE IA E TELEMETRIA
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [distanciaIA, setDistanciaIA] = useState("");
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [openTrips, setOpenTrips] = useState<any[]>([]);
+  const [historyTrips, setHistoryTrips] = useState<any[]>([]);
+  const [editingTrip, setEditingTrip] = useState<any>(null);
+  const [newOrigem, setNewOrigem] = useState("");
+  const [newDestino, setNewDestino] = useState("");
+
+  const [tripToDelete, setTripToDelete] = useState<string | null>(null);
+  const [tripToFinalize, setTripToFinalize] = useState<boolean>(false);
+  // INTERFACE
+  const [savingMission, setSavingMission] = useState(false);
+  const [savingPerfil, setSavingPerfil] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const fetchRecruits = async () => {
-      const { data } = await supabase.from("tripulacao").select("*");
-      if (data) setRecruits(data);
-    };
-    const fetchKeys = async () => {
-      const { data } = await supabase.from("configuracoes_ia").select("*").limit(1).single();
-      if (data) {
-        setOpenaiKey(data.openai_key || "");
-        setGeminiKey(data.gemini_key || "");
-      }
-    };
-    fetchRecruits();
-    fetchKeys();
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
+    const loadFullSystem = async () => {
       try {
-        const { data, error } = await supabase
-          .from("perfil_viagem")
-          .select("*")
-          .limit(1)
-          .single();
+        // 1. Validar Segurança de Administrador e Copiloto
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase.from("tripulacao").select("role, funcao_missao").eq("user_id", user.id).maybeSingle();
+          if (prof) {
+            setUserRole(prof.role);
+            setUserFuncao(prof.funcao_missao);
+          }
+        }
 
-        if (data) {
-          setNomeCarro(data.nome_carro);
-          setAnoCarro(data.ano_carro);
-          setPaisAtual(data.pais_atual);
-          setDescricao(data.descricao_viagem);
-          setStatus(data.status_atual);
-          setLocal(data.local_atual);
-          setDestino(data.next_destination);
+        // 2. Carregar Perfil de Viagem Real
+        const { data: profile } = await supabase.from("perfil_viagem").select("*").limit(1).maybeSingle();
+        if (profile) {
+          setProfileId(profile.id);
+          setNomeCarro(profile.nome_carro || "");
+          setAnoCarro(profile.ano_carro || "");
+          setPaisAtual(profile.pais_atual || "");
+          setDescricao(profile.descricao_viagem || "");
+          setStatus(profile.status_atual || "stopped");
+          setLocal(profile.local_atual || "");
+          setDestino(profile.next_destination || "");
+        }
+
+        // 3. Carregar Configurações de IA
+        const { data: aiData } = await supabase.from("configuracoes_ia").select("*").limit(1).maybeSingle();
+        if (aiData) {
+          setIaConfigId(aiData.id);
+          setOpenaiKey(aiData.openai_key || "");
+          setGeminiKey(aiData.gemini_key || "");
+        }
+
+        // 4. Carregar Tripulação Completa
+        const { data: crew, error } = await supabase
+          .from("tripulacao")
+          .select("*")
+          .order('nome', { ascending: true }); // Mudamos para 'nome' que é o que o banco tem agora
+
+        if (crew) {
+          setRecruits(crew);
+        }
+
+        const { data: allViagens } = await supabase.from("viagens").select("*").order("created_at", { ascending: false });
+        if (allViagens) {
+          setOpenTrips(allViagens.filter((v: any) => v.status !== 'concluida'));
+          setHistoryTrips(allViagens.filter((v: any) => v.status === 'concluida').slice(0, 5));
         }
       } catch (err) {
-        console.error("Erro ao carregar dados do Supabase:", err);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Erro crítico na carga de dados:", err);
+        }
       }
     };
-
-    loadData();
+    loadFullSystem();
   }, []);
 
   if (!mounted) return null;
 
-  const handleStart = async () => {
-    setSavingMission(true);
-    console.log("Tentando salvar dados de Missão (Partida)...");
-
-    const { data, error } = await supabase
-      .from("perfil_viagem")
-      .update({
-        status_atual: "traveling",
-        local_atual: local,
-        next_destination: destino,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", "00000000-0000-0000-0000-000000000000");
-
-    if (error) {
-      toast.error(`Erro: ${error.message}`);
-    } else {
-      setStatus("traveling");
-      toast.success("Missão Iniciada! 🚐💨");
-    }
-    setSavingMission(false);
-  };
-
-  const handleStop = async () => {
-    setSavingMission(true);
-    console.log("Tentando salvar dados de Missão (Chegada)...");
-
-    const { data, error } = await supabase
-      .from("perfil_viagem")
-      .update({
-        status_atual: "stopped",
-        local_atual: local,
-        next_destination: destino,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", "00000000-0000-0000-0000-000000000000");
-
-    console.log("Resposta do Banco (Missão):", error);
-
-    if (error) {
-      toast.error(`Erro: ${error.message}`);
-    } else {
-      setStatus("stopped");
-      toast.success("Check-in realizado! Status: Pit Stop");
-    }
-    setSavingMission(false);
-  };
-
-  const handleSaveConfig = async () => {
+  // FUNÇÕES DE PERSISTÊNCIA
+  const handleSaveAll = async () => {
+    if (!profileId) return toast.error("ID do Perfil não localizado.");
     setSavingPerfil(true);
-    console.log("Tentando salvar dados do Perfil e Tripulação...");
 
-    // 1. Atualiza Perfil
-    const { error: errPerfil } = await supabase
-      .from("perfil_viagem")
-      .update({
-        nome_carro: nomeCarro,
-        ano_carro: anoCarro,
-        pais_atual: paisAtual,
-        descricao_viagem: descricao,
-      })
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+    // Salvar Perfil e Missão
+    const { error: errPerfil } = await supabase.from("perfil_viagem").update({
+      nome_carro: nomeCarro,
+      ano_carro: anoCarro,
+      pais_atual: paisAtual,
+      descricao_viagem: descricao,
+      local_atual: local,
+      next_destination: destino,
+      status_atual: status,
+      updated_at: new Date().toISOString()
+    }).eq("id", profileId);
 
-    // 2. Remove role copiloto anterior
-    await supabase
-      .from("tripulacao")
-      .update({ role: "viewer" })
-      .eq("role", "copiloto");
+    // Atualizar Roles (Motorista e Copiloto)
+    if (driverId) await supabase.from("tripulacao").update({ funcao_missao: 'motorista' }).eq('user_id', driverId);
+    if (passengerId) await supabase.from("tripulacao").update({ funcao_missao: 'copiloto' }).eq('user_id', passengerId);
 
-    // 3. Adiciona role copiloto no selecionado
-    if (passengerName) {
-      await supabase
-        .from("tripulacao")
-        .update({ role: "copiloto" })
-        .eq("id", passengerName);
-    }
-
-    if (errPerfil) {
-      toast.error(`Erro: ${errPerfil.message}`);
-    } else {
-      toast.success("Perfil Atualizado com Sucesso!");
+    if (errPerfil) toast.error(errPerfil.message);
+    else {
+      toast.success("SISTEMA SINCRONIZADO!");
       router.refresh();
     }
     setSavingPerfil(false);
   };
 
+  const handleUpdateTrip = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTrip) return;
+    const { error } = await supabase
+      .from("viagens")
+      .update({ origem: newOrigem, destino: newDestino })
+      .eq("id", editingTrip.id);
+    
+    if (error) toast.error("Falha ao atualizar: " + error.message);
+    else {
+      toast.success("Viagem Atualizada!");
+      setEditingTrip(null);
+      const { data } = await supabase.from("viagens").select("*").neq("status", "concluida");
+      if (data) setOpenTrips(data);
+    }
+  };
+
+  const handleTripAction = async (id: string, action: 'pitstop' | 'cancelado' | 'delete' | 'concluida') => {
+    try {
+      if (action === 'delete') {
+        const { error } = await supabase.from("viagens").delete().eq("id", id);
+        if (error) throw error;
+        toast.success("Viagem Excluída!");
+      } else {
+        const { error } = await supabase.from("viagens").update({ status: action }).eq("id", id);
+        if (error) throw error;
+        
+        if (action === 'concluida') {
+          await supabase.from("perfil_viagem").update({ status_atual: 'stopped' }).eq("id", profileId);
+        }
+        
+        toast.success(`Status alterado para ${action}!`);
+      }
+      const { data } = await supabase.from("viagens").select("*").neq("status", "concluida");
+      if (data) setOpenTrips(data);
+    } catch (err: any) {
+      toast.error(err.message || "Erro na ação.");
+    }
+  };
+
+  const canControlMission = userRole === 'admin' || userFuncao === 'copiloto';
+
+  const handleFieldUpdate = async (field: string, value: string) => {
+    if (!profileId || !canControlMission) return;
+    const { error } = await supabase.from("perfil_viagem").update({ [field]: value }).eq("id", profileId);
+    if (error) toast.error("Falha ao atualizar campo: " + error.message);
+  };
+
+  const handleResetEmergency = async () => {
+    try {
+      const { data } = await supabase.from("perfil_viagem").select("id").order("updated_at", { ascending: false });
+      if (data && data.length > 1) {
+        const idsToDelete = data.slice(1).map((d: any) => d.id);
+        await supabase.from("perfil_viagem").delete().in("id", idsToDelete);
+      }
+      if (data && data.length > 0) {
+        await supabase.from("perfil_viagem").update({ status_atual: 'stopped' }).eq("id", data[0].id);
+      }
+      toast.success("RESET DE EMERGÊNCIA CONCLUÍDO!");
+      router.refresh();
+    } catch (err: any) {
+      toast.error("Erro no reset: " + err.message);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: "traveling" | "stopped" | "pitstop" | "canceled") => {
+    if (!profileId) return toast.error("ID do Perfil não localizado.");
+    
+    if (newStatus === 'traveling') {
+      const { data } = await supabase.from("perfil_viagem").select("status_atual").eq("id", profileId).maybeSingle();
+      if (data && data.status_atual === 'traveling') {
+        toast.error("Finalize a viagem atual antes de iniciar uma nova.");
+        return;
+      }
+    }
+
+    setStatus(newStatus);
+
+    try {
+      const { error: errPerfil } = await supabase
+        .from("perfil_viagem")
+        .update({
+          status_atual: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", profileId);
+
+      if (errPerfil) throw errPerfil;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || profileId;
+
+      const { data: activeTrip } = await supabase.from("viagens").select("*").eq("status", "traveling").limit(1).maybeSingle();
+
+      if (newStatus === 'stopped') {
+        if (activeTrip) {
+          const timeline = activeTrip.distancia && activeTrip.distancia.startsWith('[') ? JSON.parse(activeTrip.distancia) : [];
+          timeline.push({ status: 'concluida', timestamp: new Date().toISOString(), local });
+          await supabase.from("viagens").update({ status: 'concluida', distancia: JSON.stringify(timeline) }).eq("id", activeTrip.id);
+          toast.success("Viagem Finalizada!");
+        } else {
+          await supabase.from("viagens").insert({
+            origem: local,
+            destino: destino,
+            distancia: JSON.stringify([{ status: 'stopped', timestamp: new Date().toISOString(), local }]),
+            status: 'concluida',
+            user_id: userId,
+            criado_por: profileId,
+            data_fim: new Date().toISOString()
+          });
+          toast.success("Viagem Finalizada!");
+        }
+      } else if (newStatus === 'traveling') {
+        if (activeTrip) {
+          const timeline = activeTrip.distancia && activeTrip.distancia.startsWith('[') ? JSON.parse(activeTrip.distancia) : [];
+          timeline.push({ status: 'retorno', timestamp: new Date().toISOString(), local });
+          await supabase.from("viagens").update({ distancia: JSON.stringify(timeline) }).eq("id", activeTrip.id);
+          toast.success("Retorno à viagem registrado!");
+        } else {
+          await supabase.from("viagens").insert({
+            origem: local,
+            destino: destino,
+            distancia: JSON.stringify([{ status: 'traveling', timestamp: new Date().toISOString(), local }]),
+            status: 'traveling',
+            user_id: userId,
+            criado_por: profileId,
+            data_inicio: new Date().toISOString()
+          });
+          toast.success("Partida iniciada!");
+        }
+      } else if (newStatus === 'canceled') {
+        if (activeTrip) {
+          const timeline = activeTrip.distancia && activeTrip.distancia.startsWith('[') ? JSON.parse(activeTrip.distancia) : [];
+          timeline.push({ status: 'canceled', timestamp: new Date().toISOString(), local });
+          await supabase.from("viagens").update({ status: 'cancelada', distancia: JSON.stringify(timeline) }).eq("id", activeTrip.id);
+        } else {
+          await supabase.from("viagens").insert({
+            origem: local,
+            destino: destino,
+            distancia: "N/A",
+            status: 'cancelada',
+            user_id: userId,
+            criado_por: profileId
+          });
+        }
+        toast.success("Viagem Cancelada!");
+      } else if (newStatus === 'pitstop') {
+        toast.success("Pit Stop registrado!");
+      }
+
+      router.refresh();
+    } catch (error: any) {
+      console.error("Erro detalhado:", JSON.stringify(error, null, 2));
+      toast.error(error.message || "Erro ao atualizar status.");
+    }
+  };
+  const handlePitstopToggle = async () => {
+    try {
+      const { data: activeTrip } = await supabase.from("viagens").select("*").in("status", ["traveling", "stopped"]).limit(1).maybeSingle();
+      
+      if (!activeTrip) {
+        toast.error("Nenhuma viagem em andamento para alternar Pitstop.");
+        return;
+      }
+
+      const nextStatus = activeTrip.status === "traveling" ? "stopped" : "traveling";
+      const timeline = activeTrip.distancia && activeTrip.distancia.startsWith("[") ? JSON.parse(activeTrip.distancia) : [];
+      timeline.push({ status: nextStatus === "stopped" ? "pitstop" : "retorno", timestamp: new Date().toISOString(), local });
+
+      const { error } = await supabase.from("viagens")
+        .update({ status: nextStatus, distancia: JSON.stringify(timeline) })
+        .eq("id", activeTrip.id);
+
+      if (error) throw error;
+
+      await supabase.from("perfil_viagem").update({ status_atual: nextStatus }).eq("id", profileId);
+      setStatus(nextStatus);
+
+      toast.success(nextStatus === "stopped" ? "☕ PIT STOP Registrado!" : "🚀 Viagem Retomada!");
+
+      const { data: allViagens } = await supabase.from("viagens").select("*").order("created_at", { ascending: false });
+      if (allViagens) {
+        setOpenTrips(allViagens.filter((v: any) => v.status !== 'concluida'));
+        setHistoryTrips(allViagens.filter((v: any) => v.status === 'concluida').slice(0, 5));
+      }
+    } catch (err: any) {
+      toast.error("Erro no Pitstop: " + err.message);
+    }
+  };
+  const handleFinalizeTrip = async () => {
+    try {
+      const { data: activeTrip } = await supabase.from("viagens").select("*").neq("status", "concluida").limit(1).maybeSingle();
+      if (activeTrip) {
+        const timeline = activeTrip.distancia && activeTrip.distancia.startsWith('[') ? JSON.parse(activeTrip.distancia) : [];
+        timeline.push({ status: 'concluida', timestamp: new Date().toISOString(), local });
+        await supabase.from("viagens").update({ status: 'concluida', data_fim: new Date().toISOString(), distancia: JSON.stringify(timeline) }).eq("id", activeTrip.id);
+        
+        await supabase.from("perfil_viagem").update({ status_atual: 'stopped' }).eq("id", profileId);
+        setStatus('stopped');
+        toast.success("Viagem Finalizada!");
+        
+        const { data: allViagens } = await supabase.from("viagens").select("*").order("created_at", { ascending: false });
+        if (allViagens) {
+          setOpenTrips(allViagens.filter((v: any) => v.status !== 'concluida'));
+          setHistoryTrips(allViagens.filter((v: any) => v.status === 'concluida').slice(0, 5));
+        }
+        router.refresh();
+      }
+      setTripToFinalize(false);
+    } catch (e: any) {
+      toast.error("Erro ao finalizar: " + e.message);
+    }
+  };
+  const handleAIPlan = async () => {
+    setLoadingAI(true);
+    // Simulação da chamada de IA que salvará no banco para a Home refletir
+    setTimeout(async () => {
+      const calcDist = "420km"; // Aqui entrará sua lógica de geolocalização/IA
+      setDistanciaIA(calcDist);
+
+      const { error } = await supabase.from("viagens").insert({
+        origem: local,
+        destino: destino,
+        distancia: calcDist,
+        status: 'planejado',
+        criado_por: profileId
+      });
+
+      if (error) toast.error("Falha ao salvar rota no BD: " + error.message);
+      else toast.success(`IA Gerou: ${calcDist} e salvou no banco de dados!`);
+      setLoadingAI(false);
+    }, 2000);
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center justify-start p-4 pt-12 pb-24 gap-6">
-      {/* Botão Voltar */}
-      <div className="w-full max-w-md flex justify-start">
-        <Link
-          href="/"
-          className="game-button bg-zinc-800 text-white text-xs py-2 px-3 flex items-center gap-1.5"
-        >
-          <HomeIcon size={14} />
-          Voltar para o Mapa
+    <div className="min-h-screen bg-zinc-950 text-white p-4 pt-12 pb-32 flex flex-col items-center gap-8 font-sans">
+
+      {/* CABEÇALHO */}
+      <header className="w-full max-w-4xl flex justify-between items-center border-b-2 border-zinc-800 pb-4">
+        <div className="flex flex-col">
+          <h1 className="text-4xl font-black italic tracking-tighter text-[var(--mario-red)]">PAINEL DO COMANDANTE</h1>
+          <p className="text-[10px] font-mono text-zinc-500 uppercase">Sistema de Gerenciamento Elevan v2.0</p>
+        </div>
+        <Link href="/" className="game-button bg-zinc-800 px-6 py-2 text-xs font-bold flex items-center gap-2">
+          <HomeIcon size={16} /> VOLTAR AO MAPA
         </Link>
-      </div>
+      </header>
 
-      {/* Card 1: Controle de Missão */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-6 max-w-md w-full">
-        <h1 className="text-2xl font-black uppercase tracking-tighter text-center text-[var(--mario-blue)]">
-          Controle de Missão
-        </h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl">
 
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={handleStart}
-            disabled={savingMission}
-            className="game-button bg-green-500 text-white hover:bg-green-600 flex flex-col items-center gap-2 py-4 disabled:opacity-50"
-          >
-            <Zap size={32} fill="currentColor" />
-            <span className="text-lg font-black uppercase">
-              {savingMission ? "Salvando..." : "Partida"}
-            </span>
-          </button>
-
-          <button
-            onClick={handleStop}
-            disabled={savingMission}
-            className="game-button bg-[var(--mario-red)] text-white hover:bg-red-600 flex flex-col items-center gap-2 py-4 disabled:opacity-50"
-          >
-            <Coffee size={32} />
-            <span className="text-lg font-black uppercase">
-              {savingMission ? "Salvando..." : "Chegada"}
-            </span>
-          </button>
-        </div>
-
-        <a
-          href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
-            local
-          )}&destination=${encodeURIComponent(destino)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={async () => {
-            toast.success("Iniciando navegação e sincronizando trajeto...");
-            await supabase
-              .from("perfil_viagem")
-              .update({
-                status_atual: "traveling",
-                local_atual: local,
-                next_destination: destino,
-              })
-              .neq("id", "00000000-0000-0000-0000-000000000000");
-          }}
-          className="game-button bg-[var(--mario-blue)] text-white font-black text-center text-xs py-3 w-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black mt-2 uppercase flex items-center justify-center gap-2"
-        >
-          🗺️ Iniciar Navegação no Google Maps
-        </a>
-
-        {/* Planejamento de IA */}
-        <button
-          onClick={async () => {
-            toast.info("Processando Telemetria via Cérebro de IA...");
-            setTimeout(() => {
-              toast.success("Planejamento Gerado! ETA: 3h | Distância: 240km");
-            }, 1500);
-          }}
-          className="game-button bg-[var(--mario-yellow)] text-black font-black text-center text-xs py-3 w-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] border-2 border-black mt-2 uppercase"
-        >
-          🤖 Gerar Planejamento IA
-        </button>
-
-        {/* Inputs de Status */}
-        <div className="flex flex-col gap-4 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-zinc-400">
-              Localização Atual
-            </label>
-            <input
-              type="text"
-              value={local}
-              onChange={(e) => setLocal(e.target.value)}
-              className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white text-sm font-bold"
-              placeholder="Ex: Posto Graal"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase text-zinc-400">
-              Próximo Destino
-            </label>
-            <input
-              type="text"
-              value={destino}
-              onChange={(e) => setDestino(e.target.value)}
-              className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white text-sm font-bold"
-              placeholder="Ex: Curitiba"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Card 2: Configurações do Veículo */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
-        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-yellow)] flex items-center gap-2">
-          <Save size={20} />
-          Perfil da Viagem
-        </h2>
-
-        <div className="flex flex-col gap-3 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Nome do Carro
-            </label>
-            <input
-              type="text"
-              value={nomeCarro}
-              onChange={(e) => setNomeCarro(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Ano
-            </label>
-            <input
-              type="text"
-              value={anoCarro}
-              onChange={(e) => setAnoCarro(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              País Atual
-            </label>
-            <input
-              type="text"
-              value={paisAtual}
-              onChange={(e) => setPaisAtual(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Descrição
-            </label>
-            <textarea
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold h-16 resize-none"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveConfig}
-            disabled={savingPerfil}
-            className="game-button bg-[var(--mario-yellow)] text-black font-black w-full text-xs mt-2 disabled:opacity-50"
-          >
-            {savingPerfil ? "Salvando..." : "Salvar Perfil"}
-          </button>
-        </div>
-      </div>
-
-      {/* Card 3: Tripulação */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
-        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-green)] flex items-center gap-2">
-          <User size={20} />
-          Tripulação
-        </h2>
-
-        <div className="flex flex-col gap-3 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Nome do Piloto
-            </label>
-            <input
-              type="text"
-              value={driverName}
-              onChange={(e) => setDriverName(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Nome do Copiloto
-            </label>
-            <select
-              value={passengerName}
-              onChange={(e) => setPassengerName(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs font-bold"
+        {/* CARD: CONTROLE DE MISSÃO (START/STOP) */}
+        <section className="glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-6">
+          <h2 className="text-xl font-black flex items-center gap-2 text-[var(--mario-blue)] uppercase italic">
+            <ShieldCheck /> Controle de Missão {!canControlMission && "(Informativo)"}
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => handleStatusChange('traveling')}
+              disabled={!canControlMission}
+              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission ? 'opacity-50 cursor-not-allowed' : ''} ${status === 'traveling' ? 'bg-green-500 scale-95 shadow-inner animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.7)]' : 'bg-zinc-800 hover:bg-zinc-700'}`}
             >
-              <option value="">Selecione um Copiloto</option>
-              {recruits
-                .filter((r) => r.status === "aprovado")
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.nome}
-                  </option>
-                ))}
-            </select>
+              <Zap size={24} /> PARTIDA
+            </button>
+            <button
+              onClick={() => setTripToFinalize(true)}
+              disabled={!canControlMission}
+              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission ? 'opacity-50 cursor-not-allowed' : ''} ${status === 'stopped' ? 'bg-green-600 scale-95 shadow-inner' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+            >
+              <Coffee size={24} /> CHEGADA
+            </button>
+            <button
+              onClick={handlePitstopToggle}
+              disabled={!canControlMission}
+              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission ? 'opacity-50 cursor-not-allowed' : ''} ${status === 'traveling' ? 'bg-[var(--mario-yellow)] text-black hover:bg-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.4)]' : 'bg-blue-600 hover:bg-blue-500 text-white animate-pulse shadow-[0_0_15px_rgba(59,130,246,0.6)]'}`}
+            >
+              {status === 'traveling' ? (
+                <>
+                  <Coffee size={24} /> ☕ PIT STOP
+                </>
+              ) : (
+                <>
+                  <Zap size={24} /> 🚀 RETORNAR VIAGEM
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => handleStatusChange('canceled')}
+              disabled={!canControlMission}
+              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission ? 'opacity-50 cursor-not-allowed' : ''} ${status === 'canceled' ? 'bg-red-500 scale-95 shadow-inner' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+            >
+              <XCircle size={24} /> CANCELAR
+            </button>
           </div>
+          <div className="flex flex-col gap-4 bg-black/40 p-4 rounded-xl">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase">Localização Atual</label>
+              <input 
+                value={local} 
+                onChange={e => setLocal(e.target.value)} 
+                onBlur={() => handleFieldUpdate('local_atual', local)}
+                disabled={!canControlMission}
+                className="bg-zinc-900 border-2 border-zinc-800 p-2 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed" 
+                placeholder="Ex: Roma, Itália" 
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase">Próximo Destino</label>
+              <input 
+                value={destino} 
+                onChange={e => setDestino(e.target.value)} 
+                onBlur={() => handleFieldUpdate('next_destination', destino)}
+                disabled={!canControlMission}
+                className="bg-zinc-900 border-2 border-zinc-800 p-2 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed" 
+                placeholder="Ex: Paris, França" 
+              />
+            </div>
+          </div>
+          {canControlMission && (
+            <button 
+              onClick={handleResetEmergency} 
+              className="game-button bg-red-600 text-white font-black text-[10px] py-2 mt-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-red-700"
+            >
+              🚨 RESET DE EMERGÊNCIA
+            </button>
+          )}
+        </section>
 
+        {/* CARD: TRIPULAÇÃO (PT-BR) */}
+        <section className="glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-6">
+          <h2 className="text-xl font-black flex items-center gap-2 text-[var(--mario-green)] uppercase italic">
+            <Users /> Gestão de Tripulação
+          </h2>
+          <div className="flex flex-col gap-4 bg-black/20 p-4 rounded-xl">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase">Definir Motorista</label>
+              <select value={driverId} onChange={e => setDriverId(e.target.value)} className="bg-zinc-900 p-2 rounded-lg border-2 border-zinc-800 font-bold">
+                <option value="">Selecione...</option>
+                {recruits.filter(r => r.status === 'aprovado').map((r, index) => <option key={r.user_id || index} value={r.user_id}>{r.nome}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase">Definir Copiloto</label>
+              <select
+                value={passengerId}
+                onChange={e => setPassengerId(e.target.value)}
+                className="bg-zinc-900 p-2 rounded-lg border-2 border-zinc-800"
+              >
+                <option value="">Selecione o Copiloto...</option>
+                {recruits
+                  .filter(r => r.status === 'aprovado')
+                  .map((r, index) => (
+                    <option key={r.user_id || index} value={r.user_id}> {r.nome} </option>
+                  ))
+                }
+              </select>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-500 italic">* Somente membros aprovados aparecem nesta lista.</p>
+        </section>
+
+        {/* CARD: PERFIL DO VEÍCULO */}
+        <section className="glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4">
+          <h2 className="text-xl font-black flex items-center gap-2 text-[var(--mario-yellow)] uppercase italic">
+            <Settings /> Perfil do Veículo
+          </h2>
+          <input value={nomeCarro} onChange={e => setNomeCarro(e.target.value)} placeholder="Nome do Carro" className="bg-zinc-900 p-2 rounded border border-zinc-800" />
+          <input value={anoCarro} onChange={e => setAnoCarro(e.target.value)} placeholder="Ano/Modelo" className="bg-zinc-900 p-2 rounded border border-zinc-800" />
+          <input value={paisAtual} onChange={e => setPaisAtual(e.target.value)} placeholder="País da Expedição" className="bg-zinc-900 p-2 rounded border border-zinc-800" />
+          <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição da Missão" className="bg-zinc-900 p-2 rounded border border-zinc-800 h-24 resize-none" />
+        </section>
+
+        {/* CARD: NÚCLEO DE IA (CHAVES E TELEMETRIA) */}
+        <section className="glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 bg-zinc-900/60">
+          <h2 className="text-xl font-black flex items-center gap-2 text-zinc-500 uppercase italic">
+            <BrainCircuit /> Núcleo Neural de IA
+          </h2>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 bg-black p-2 rounded border border-zinc-800">
+              <Key size={14} className="text-zinc-600" />
+              <input type="password" value={openaiKey} onChange={e => setOpenaiKey(e.target.value)} placeholder="OpenAI Key" className="bg-transparent text-[10px] flex-1 outline-none" />
+            </div>
+            <div className="flex items-center gap-2 bg-black p-2 rounded border border-zinc-800">
+              <Key size={14} className="text-zinc-600" />
+              <input type="password" value={geminiKey} onChange={e => setGeminiKey(e.target.value)} placeholder="Gemini Key" className="bg-transparent text-[10px] flex-1 outline-none" />
+            </div>
+          </div>
           <button
-            onClick={handleSaveConfig}
-            className="game-button bg-[var(--mario-green)] text-white w-full text-xs mt-2"
+            onClick={handleAIPlan}
+            disabled={loadingAI}
+            className="game-button bg-[var(--mario-yellow)] text-black font-black py-3 text-xs uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
           >
-            Salvar Tripulação
+            {loadingAI ? "PROCESSANDO TELEMETRIA..." : "CALCULAR ROTA VIA IA"}
           </button>
-        </div>
-      </div>
+          {distanciaIA && (
+            <div className="bg-green-500/10 border border-green-500/50 p-2 rounded text-center">
+              <p className="text-green-500 text-xs font-black uppercase">Último ETA: {distanciaIA}</p>
+            </div>
+          )}
+        </section>
 
-      {/* Card: Solicitações de Embarque */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
-        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--mario-yellow)]">
-          Solicitações
-        </h2>
-
-        {recruits.filter((r) => r.status === "pendente").length === 0 ? (
-          <p className="text-xs text-zinc-400 font-bold text-center py-4">
-            Nenhuma solicitação pendente.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {recruits
-              .filter((r) => r.status === "pendente")
-              .map((rec) => (
-                <div
-                  key={rec.id}
-                  className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 flex flex-col gap-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-white">
-                      {rec.nome}
-                    </span>
-                    <span className="text-[10px] bg-yellow-500/20 text-yellow-500 font-bold px-2 py-0.5 rounded-full">
-                      Pendente
-                    </span>
+        {/* CARD: SOLICITAÇÕES DE NOVOS MEMBROS */}
+        <section className="md:col-span-2 glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="text-xl font-black mb-6 uppercase italic text-zinc-400">Solicitações de Embarque</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recruits.filter(r => r.status === 'pendente').length === 0 ? (
+              <p className="text-zinc-600 font-bold uppercase text-xs py-4 col-span-full text-center">Nenhum recruta aguardando aprovação.</p>
+            ) : (
+              recruits.filter(r => r.status === 'pendente').map((rec, index) => (
+                <div key={rec.user_id || index} className="bg-zinc-900 p-4 rounded-2xl border-2 border-zinc-800 flex flex-col gap-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-black text-sm uppercase">{rec.nome}</p>
+                      <p className="text-[10px] text-zinc-500">{rec.email}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <button
-                      onClick={async () => {
-                        await supabase
-                          .from("tripulacao")
-                          .update({ status: "aprovado", role: "copiloto" })
-                          .eq("id", rec.id);
-                        toast.success("Aprovado como Copiloto!");
-                        setRecruits(
-                          recruits.map((r) =>
-                            r.id === rec.id
-                              ? { ...r, status: "aprovado", role: "copiloto" }
-                              : r
-                          )
-                        );
-                      }}
-                      className="game-button bg-green-500 text-white text-[9px] py-1 font-bold flex-1"
-                    >
-                      Copiloto
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await supabase
-                          .from("tripulacao")
-                          .update({ status: "aprovado", role: "passageiro" })
-                          .eq("id", rec.id);
-                        toast.success("Aprovado como Passageiro!");
-                        setRecruits(
-                          recruits.map((r) =>
-                            r.id === rec.id
-                              ? { ...r, status: "aprovado", role: "passageiro" }
-                              : r
-                          )
-                        );
-                      }}
-                      className="game-button bg-[var(--mario-blue)] text-white text-[9px] py-1 font-bold flex-1"
-                    >
-                      Passageiro
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await supabase
-                          .from("tripulacao")
-                          .delete()
-                          .eq("id", rec.id);
-                        toast.error("Recruta recusado.");
-                        setRecruits(recruits.filter((r) => r.id !== rec.id));
-                      }}
-                      className="game-button bg-[var(--mario-red)] text-white text-[9px] py-1 font-bold flex-1"
-                    >
-                      Recusar
-                    </button>
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      const { error } = await supabase.from("tripulacao").update({ status: 'aprovado', role: 'usuario', funcao_missao: 'passageiro' }).eq('user_id', rec.user_id);
+                      if (error) {
+                        console.error("Erro detalhado:", JSON.stringify(error, null, 2));
+                        toast.error(error.message);
+                      } else {
+                        toast.success("Aprovado!");
+                        router.refresh();
+                      }
+                    }} className="flex-1 bg-green-600 p-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1"><CheckCircle size={14} /> Aprovar</button>
+                    <button onClick={async () => {
+                      const { error } = await supabase.from("tripulacao").delete().eq('user_id', rec.user_id);
+                      if (error) {
+                        console.error("Erro detalhado:", JSON.stringify(error, null, 2));
+                        toast.error(error.message);
+                      } else {
+                        toast.error("Recusado.");
+                        router.refresh();
+                      }
+                    }} className="bg-red-600 p-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1"><Trash2 size={14} /> Rejeitar</button>
                   </div>
                 </div>
-              ))}
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* CARD: GESTÃO DE VIAGENS DUAL */}
+        <section className="md:col-span-2 glass-panel p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-zinc-900/40">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* LADO ESQUERDO: VIAGEM ATIVA */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-black uppercase italic text-[var(--mario-green)] flex items-center gap-2">
+                <Zap size={20} /> Viagem Ativa
+              </h2>
+              {openTrips.filter(t => t.status === 'traveling').length === 0 ? (
+                <div className="bg-zinc-900/50 border-2 border-zinc-800 p-8 rounded-2xl flex items-center justify-center h-full min-h-[150px]">
+                  <p className="text-zinc-500 font-bold uppercase text-xs">Nenhuma viagem em curso.</p>
+                </div>
+              ) : (
+                openTrips.filter(t => t.status === 'traveling').map((trip) => (
+                  <div key={trip.id} className="bg-zinc-900 p-4 rounded-2xl border-2 border-[var(--mario-green)] flex flex-col gap-4">
+                    <div className="flex flex-col">
+                      <p className="font-black text-sm uppercase">{trip.origem} ➔ {trip.destino}</p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Status: <strong className="text-green-500 uppercase">{trip.status}</strong></p>
+                    </div>
+                    {canControlMission && (
+                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                        <button 
+                          onClick={() => setTripToFinalize(true)} 
+                          className="col-span-2 bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg text-[10px] font-black uppercase"
+                        >
+                          Finalizar Viagem
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingTrip(trip);
+                            setNewOrigem(trip.origem);
+                            setNewDestino(trip.destino);
+                          }} 
+                          className="col-span-2 bg-zinc-700 p-2 rounded-lg text-[10px] font-black uppercase"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* LADO DIREITO: HISTÓRICO RECENTE */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-black uppercase italic text-zinc-400 flex items-center gap-2">
+                <History size={20} /> Histórico Recente (Top 5)
+              </h2>
+              {historyTrips.length === 0 ? (
+                <div className="bg-zinc-900/50 border-2 border-zinc-800 p-8 rounded-2xl flex items-center justify-center h-full min-h-[150px]">
+                  <p className="text-zinc-500 font-bold uppercase text-xs">Nenhum registro concluído.</p>
+                </div>
+              ) : (
+                historyTrips.map((trip) => (
+                  <div key={trip.id} className="bg-zinc-900 p-4 rounded-2xl border-2 border-zinc-800 flex flex-col gap-2">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col">
+                        <p className="font-bold text-xs uppercase">{trip.origem} ➔ {trip.destino}</p>
+                        <p className="text-[9px] text-zinc-500 font-bold uppercase">Chegada: {trip.data_fim ? new Date(trip.data_fim).toLocaleTimeString() : 'N/A'}</p>
+                      </div>
+                      <span className="text-[9px] bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded text-zinc-400 font-black uppercase">
+                        Concluída
+                      </span>
+                    </div>
+                    {canControlMission && (
+                      <div className="flex gap-2 mt-2">
+                        <button 
+                          onClick={() => {
+                            setEditingTrip(trip);
+                            setNewOrigem(trip.origem);
+                            setNewDestino(trip.destino);
+                          }} 
+                          className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white p-1 rounded font-bold text-[9px] uppercase flex items-center justify-center gap-1"
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button 
+                          onClick={() => setTripToDelete(trip.id)} 
+                          className="flex-1 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 p-1 rounded font-bold text-[9px] uppercase flex items-center justify-center gap-1"
+                        >
+                          🗑️ Apagar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        </section>
+
+        {/* Modal de Edição de Viagem */}
+        {editingTrip && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+            <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-w-md w-full flex flex-col gap-4 bg-zinc-900">
+              <h2 className="text-xl font-black uppercase text-[var(--mario-yellow)]">Editar Rota</h2>
+              <form onSubmit={handleUpdateTrip} className="flex flex-col gap-3">
+                <input value={newOrigem} onChange={e => setNewOrigem(e.target.value)} required className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold" />
+                <input value={newDestino} onChange={e => setNewDestino(e.target.value)} required className="bg-zinc-800 border border-zinc-700 p-2 rounded-xl text-white text-xs font-bold" />
+                <div className="flex gap-2">
+                  <button type="submit" className="game-button bg-green-500 text-white font-bold py-2 text-xs flex-1">Salvar</button>
+                  <button type="button" onClick={() => setEditingTrip(null)} className="game-button bg-red-500 text-white font-bold py-2 text-xs flex-1">Fechar</button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
-      </div>
-      {/* Card 5: Configurações Técnicas (Chaves de IA) */}
-      <div className="glass-panel p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-4 max-w-md w-full">
-        <h2 className="text-xl font-black uppercase tracking-tighter text-zinc-400 flex items-center gap-2">
-          ⚙️ Configurações Técnicas
-        </h2>
-        <div className="flex flex-col gap-3 bg-zinc-800/50 p-4 rounded-xl border-2 border-black">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              OpenAI API Key
-            </label>
-            <input
-              type="password"
-              value={openaiKey}
-              onChange={(e) => setOpenaiKey(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs"
-              placeholder="sk-..."
-            />
+        {/* Modal de Confirmação de Exclusão */}
+        {tripToDelete && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+            <div className="glass-panel p-6 rounded-2xl border-4 border-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-sm w-full flex flex-col gap-6 bg-zinc-950 text-white">
+              <div className="flex flex-col gap-2 text-center">
+                <XCircle size={40} className="text-red-500 mx-auto animate-pulse" />
+                <h2 className="text-xl font-black uppercase text-red-500">Confirmar Exclusão</h2>
+                <p className="text-xs text-zinc-400 font-bold">Deseja realmente apagar esta viagem concluída permanentemente?</p>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={async () => {
+                    const { error } = await supabase.from("viagens").delete().eq("id", tripToDelete);
+                    if (error) toast.error("Erro ao apagar!");
+                    else {
+                      toast.success("Registro apagado.");
+                      const { data } = await supabase.from("viagens").select("*").eq("status", "concluida").order("created_at", { ascending: false }).limit(5);
+                      if (data) setHistoryTrips(data);
+                    }
+                    setTripToDelete(null);
+                  }} 
+                  className="game-button bg-red-600 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  Confirmar
+                </button>
+                <button 
+                  onClick={() => setTripToDelete(null)} 
+                  className="game-button bg-zinc-800 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-zinc-400">
-              Gemini API Key
-            </label>
-            <input
-              type="password"
-              value={geminiKey}
-              onChange={(e) => setGeminiKey(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 p-2 rounded-lg text-white text-xs"
-              placeholder="AIzaSy..."
-            />
+        )}
+        {/* Modal de Confirmação de Finalização */}
+        {tripToFinalize && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+            <div className="glass-panel p-6 rounded-2xl border-4 border-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-sm w-full flex flex-col gap-6 bg-zinc-950 text-white">
+              <div className="flex flex-col gap-2 text-center">
+                <CheckCircle size={40} className="text-green-500 mx-auto animate-pulse" />
+                <h2 className="text-xl font-black uppercase text-green-500">Encerrar Missão?</h2>
+                <p className="text-xs text-zinc-400 font-bold">Deseja realmente marcar a viagem atual como concluída?</p>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={handleFinalizeTrip} 
+                  className="game-button bg-green-600 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  Confirmar
+                </button>
+                <button 
+                  onClick={() => setTripToFinalize(false)} 
+                  className="game-button bg-zinc-800 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
+        )}
+        {/* BOTÃO MESTRE DE SINCRONIZAÇÃO */}
+        <div className="md:col-span-2 mt-4">
           <button
-            onClick={async () => {
-              const { error } = await supabase
-                .from("configuracoes_ia")
-                .upsert({
-                  id: "00000000-0000-0000-0000-000000000000",
-                  openai_key: openaiKey,
-                  gemini_key: geminiKey,
-                });
-              if (error)
-                toast.error(`Erro ao salvar chaves: ${error.message}`);
-              else toast.success("Chaves de API salvas com sucesso!");
-            }}
-            className="game-button bg-zinc-700 text-white font-bold w-full text-xs mt-2"
+            onClick={handleSaveAll}
+            disabled={savingPerfil}
+            className="game-button bg-white text-black w-full py-6 text-2xl font-black italic uppercase shadow-[0px_0px_20px_rgba(255,255,255,0.2)] hover:scale-[1.01] active:scale-95 transition-all"
           >
-            Salvar Chaves de API
+            {savingPerfil ? "SINCRONIZANDO..." : "SALVAR TODAS AS ALTERAÇÕES NO SISTEMA"}
           </button>
         </div>
+
       </div>
     </div>
   );

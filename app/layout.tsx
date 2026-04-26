@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${outfit.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col font-sans">
+      <body className={`${outfit.className} min-h-full flex flex-col font-sans`}>
         <AuthProvider>
           {children}
           <Toaster 

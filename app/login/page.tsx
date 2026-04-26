@@ -39,7 +39,9 @@ export default function Login() {
           .maybeSingle();
 
         if (crewError) {
-          console.error("Erro técnico na tabela tripulacao:", crewError.message);
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Erro técnico na tabela tripulacao:", crewError.message);
+          }
         }
 
         // 3. Bloqueio de Pendentes
@@ -58,7 +60,9 @@ export default function Login() {
       router.push("/");
       
     } catch (err: any) {
-      console.error("Erro fatal no Login:", err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Erro fatal no Login:", err);
+      }
       setError("Erro de conexão. Verifique os serviços.");
       setLoading(false);
     }

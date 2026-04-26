@@ -10,9 +10,9 @@ export function BottomNav() {
 
   const tabs = [
     { id: "home", label: "Home", icon: Home, path: "/" },
-    { id: "mapa", label: "Mapa", icon: Map, path: "/" },
-    { id: "garagem", label: "Garagem", icon: Shield, path: "/calendario" },
-    { id: "perfil", label: "Perfil", icon: User, path: "/admin" },
+    { id: "mapa", label: "Mapa", icon: Map, path: "/mapa" },
+    { id: "garagem", label: "Garagem", icon: Shield, path: "/garagem" },
+    { id: "perfil", label: "Perfil", icon: User, path: "/perfil" },
   ];
 
   return (

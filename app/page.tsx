@@ -28,6 +28,10 @@ export default function Home() {
     ano_carro: "2026",
     pais_atual: "Brasil",
     descricao_viagem: "Expedição pelo coração do Brasil.",
+    status_atual: "stopped" as "traveling" | "stopped",
+    local_atual: "Posto Graal",
+    next_destination: "Brasília",
+    updated_at: new Date().toISOString()
   });
   const [tripulacao, setTripulacao] = useState({
     driver: {
@@ -82,6 +86,10 @@ export default function Home() {
           ano_carro: pf.ano_carro || "2026",
           pais_atual: pf.pais_atual || "Brasil",
           descricao_viagem: pf.descricao_viagem || "Expedição pelo coração do Brasil.",
+          status_atual: pf.status_atual || "stopped",
+          local_atual: pf.local_atual || "",
+          next_destination: pf.next_destination || "",
+          updated_at: pf.updated_at || new Date().toISOString()
         });
       }
 
@@ -91,20 +99,20 @@ export default function Home() {
         .select("*")
         .eq("status", "aprovado");
       if (crew && crew.length > 0) {
-        const drv = crew.find((c) => c.role === "copiloto") || crew[0];
-        const pass = crew.find((c) => c.role === "passageiro") || crew[1];
+        const drv = crew.find((c) => c.funcao_missao === "motorista") || crew[0];
+        const pass = crew.find((c) => c.funcao_missao === "copiloto") || crew[1];
         setTripulacao({
           driver: {
             name: drv?.nome || "Piloto",
             role: "Motorista",
-            avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
+            avatar: drv?.foto_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
               drv?.nome || "driver"
             }`,
           },
           passenger: {
             name: pass?.nome || "Copiloto",
             role: "Navegador",
-            avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
+            avatar: pass?.foto_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${
               pass?.nome || "passenger"
             }`,
           },
@@ -219,10 +227,10 @@ export default function Home() {
         {/* Banner de Status Inteligente */}
         <div className="w-full">
           <StatusBanner
-            status="stopped"
-            currentLocation="Posto Graal"
-            nextDestination="Brasília"
-            updatedAt={new Date().toISOString()}
+            status={perfilViagem.status_atual}
+            currentLocation={perfilViagem.local_atual}
+            nextDestination={perfilViagem.next_destination}
+            updatedAt={perfilViagem.updated_at}
           />
         </div>
 
@@ -257,7 +265,7 @@ export default function Home() {
           >
             📸 Veja por onde passamos (Diário)
           </Link>
-          <TravelLog points={points} />
+          <TravelLog />
         </div>
 
         {/* Footer */}

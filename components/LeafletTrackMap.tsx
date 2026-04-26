@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Layers, Crosshair, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 // Corrige problemas com os ícones padrão do Leaflet no Next.js
 const fixLeafletIcon = () => {
@@ -38,6 +39,7 @@ const mapStyles = {
 export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
   const [style, setStyle] = useState<keyof typeof mapStyles>("game");
   const [isManual, setIsManual] = useState(false);
+  const [onlineUsersCount, setOnlineUsersCount] = useState(1);
 
   useEffect(() => {
     if (!isManual) {
@@ -51,6 +53,25 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
     fixLeafletIcon();
   }, []);
 
+  useEffect(() => {
+    const channel = supabase.channel('espectadores');
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        setOnlineUsersCount(Object.keys(state).length);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const [roadPositions, setRoadPositions] = useState<[number, number][]>([]);
 
   useEffect(() => {
@@ -58,7 +79,7 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
       if (!points || points.length < 2) return;
       try {
         const coordsString = points.map((p) => `${p.lng},${p.lat}`).join(";");
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+        const url = `/api/route-proxy?coords=${coordsString}`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -201,7 +222,7 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
 
       <div className="absolute top-2 right-4 z-[1000] text-[10px] font-bold bg-zinc-900/80 px-3 py-1 rounded-full text-white uppercase tracking-wider flex items-center gap-1.5 border border-zinc-700">
         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-        <span>{Math.floor(Math.random() * 5) + 2} Espectadores</span>
+        <span>{onlineUsersCount} Espectadores</span>
       </div>
     </div>
   );

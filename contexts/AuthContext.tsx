@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((reg) => console.log("SW registrado com sucesso:", reg.scope))
+        .then((reg) => {})
         .catch((err) => console.error("Falha ao registrar SW:", err));
     }
   }, []);
