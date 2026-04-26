@@ -20,8 +20,9 @@ export default function Home() {
   const [newCheckpointName, setNewCheckpointName] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const [totalDistance] = useState(2500);
-  const [currentDistance] = useState(1250);
+  const [totalDistance, setTotalDistance] = useState(100);
+  const [currentDistance, setCurrentDistance] = useState(0);
+  const [estimatedSpeed, setEstimatedSpeed] = useState(0);
   const [points, setPoints] = useState<any[]>([]);
   const [perfilViagem, setPerfilViagem] = useState({
     nome_carro: "Camper",
@@ -117,6 +118,28 @@ export default function Home() {
             }`,
           },
         });
+      }
+
+      const { data: activeTrip } = await supabase.from("viagens").select("*").neq("status", "concluida").limit(1).maybeSingle();
+      if (activeTrip) {
+        const total = activeTrip.distancia_total || parseInt(activeTrip.distancia) || 119;
+        const totalMins = activeTrip.tempo_estimado_minutos || 135;
+        
+        const startTime = new Date(activeTrip.created_at).getTime();
+        const now = new Date().getTime();
+        const elapsedMinutes = (now - startTime) / (1000 * 60);
+        
+        const progressPercent = Math.min(100, Math.max(0, (elapsedMinutes / totalMins) * 100));
+        const current = Math.round((progressPercent / 100) * total);
+        const speed = progressPercent >= 100 ? 0 : 85;
+
+        setTotalDistance(total);
+        setCurrentDistance(current);
+        setEstimatedSpeed(speed);
+      } else {
+        setTotalDistance(100);
+        setCurrentDistance(0);
+        setEstimatedSpeed(0);
       }
     };
     loadRealData();
@@ -222,6 +245,11 @@ export default function Home() {
             totalDistance={totalDistance}
             currentDistance={currentDistance}
           />
+          {estimatedSpeed > 0 && (
+            <div className="text-[10px] font-black uppercase text-[var(--mario-yellow)] mt-2 flex justify-center items-center gap-1 animate-pulse">
+              🚀 Velocidade Estimada: {estimatedSpeed} km/h
+            </div>
+          )}
         </div>
 
         {/* Banner de Status Inteligente */}

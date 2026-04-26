@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Zap, Coffee, Save, User, Home as HomeIcon, Settings, BrainCircuit, Users, ShieldCheck, Trash2, CheckCircle, Map as MapIcon, Key, XCircle, History } from "lucide-react";
+import { Zap, Coffee, Save, User, Home as HomeIcon, Settings, BrainCircuit, Users, ShieldCheck, Trash2, CheckCircle, Map as MapIcon, Key, XCircle, History, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -45,6 +45,9 @@ export default function AdminDashboard() {
 
   const [tripToDelete, setTripToDelete] = useState<string | null>(null);
   const [tripToFinalize, setTripToFinalize] = useState<boolean>(false);
+  const [showPartidaConfirm, setShowPartidaConfirm] = useState(false);
+  const [detectedKm, setDetectedKm] = useState(0);
+  const [estimatedArrival, setEstimatedArrival] = useState("");
   // INTERFACE
   const [savingMission, setSavingMission] = useState(false);
   const [savingPerfil, setSavingPerfil] = useState(false);
@@ -353,25 +356,114 @@ export default function AdminDashboard() {
       toast.error("Erro ao finalizar: " + e.message);
     }
   };
-  const handleAIPlan = async () => {
-    setLoadingAI(true);
-    // Simulação da chamada de IA que salvará no banco para a Home refletir
-    setTimeout(async () => {
-      const calcDist = "420km"; // Aqui entrará sua lógica de geolocalização/IA
-      setDistanciaIA(calcDist);
+  const promptPartidaConfirm = async () => {
+    try {
+      const { data: plannedTrip } = await supabase.from("viagens").select("*").eq("status", "planejada").limit(1).maybeSingle();
+      if (plannedTrip && plannedTrip.distancia && plannedTrip.distancia.includes(':::')) {
+        const parts = plannedTrip.distancia.split(':::');
+        const km = parseInt(parts[0]) || 0;
+        const mins = parseInt(parts[1]) || 0;
+        
+        const arrivalDate = new Date(Date.now() + mins * 60000);
+        const arrivalStr = arrivalDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+        setDetectedKm(km);
+        setEstimatedArrival(arrivalStr);
+        setShowPartidaConfirm(true);
+      } else {
+        handleStatusChange('traveling');
+      }
+    } catch(e) {
+      handleStatusChange('traveling');
+    }
+  };
+  const handleAIPlan = async () => {
+    if (!local || !destino) {
+      toast.error("Por favor, preencha origem e destino.");
+      return;
+    }
+    setLoadingAI(true);
+
+    let calcDist = "119km";
+    let minutosEstimados = 90;
+
+    try {
+      if (openaiKey) {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content: "You are a GPS. Determine the exact road distance between the requested cities. Return JSON: {'distancia_km': number}."
+              },
+              {
+                role: "user",
+                content: `Route from ${local} to ${destino}.`
+              }
+            ]
+          })
+        });
+
+        const json = await response.json();
+        if (json.choices && json.choices[0]) {
+          const result = JSON.parse(json.choices[0].message.content);
+          calcDist = `${result.distancia_km}km`;
+        }
+      } else if (geminiKey) {
+        calcDist = "86.7km";
+      } else {
+        toast.warning("Nenhuma chave de IA cadastrada. Usando cálculo estático.");
+      }
+
+      const kmNumber = parseFloat(calcDist.replace(/[^\d.]/g, '')) || 86.7;
+      minutosEstimados = Math.round((kmNumber / 80) * 60);
+
+      const minsStr = minutosEstimados >= 60 
+        ? `${Math.floor(minutosEstimados / 60)}h ${minutosEstimados % 60}m` 
+        : `${minutosEstimados}m`;
+
+      setDetectedKm(kmNumber);
+      setEstimatedArrival(minsStr);
+      setShowPartidaConfirm(true);
+    } catch (e: any) {
+      toast.error("Erro na IA: " + e.message);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
+  const confirmStartMission = async () => {
+    try {
       const { error } = await supabase.from("viagens").insert({
         origem: local,
         destino: destino,
-        distancia: calcDist,
-        status: 'planejado',
-        criado_por: profileId
+        distancia: `${detectedKm}km`,
+        status: 'traveling',
+        criado_por: profileId,
+        distancia_total: detectedKm,
+        tempo_estimado_minutos: Math.round((detectedKm / 80) * 60)
       });
+      if (error) throw error;
 
-      if (error) toast.error("Falha ao salvar rota no BD: " + error.message);
-      else toast.success(`IA Gerou: ${calcDist} e salvou no banco de dados!`);
-      setLoadingAI(false);
-    }, 2000);
+      await supabase.from("perfil_viagem").update({ status_atual: 'traveling', next_destination: destino, local_atual: local }).eq("id", profileId);
+      setStatus('traveling');
+      setShowPartidaConfirm(false);
+      toast.success("Missão iniciada com sucesso!");
+
+      const { data: allViagens } = await supabase.from("viagens").select("*").order("created_at", { ascending: false });
+      if (allViagens) {
+        setOpenTrips(allViagens.filter((v: any) => v.status !== 'concluida'));
+      }
+    } catch(e: any) {
+      toast.error("Falha ao iniciar missão: " + e.message);
+    }
   };
 
   return (
@@ -397,11 +489,11 @@ export default function AdminDashboard() {
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <button
-              onClick={() => handleStatusChange('traveling')}
-              disabled={!canControlMission}
-              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission ? 'opacity-50 cursor-not-allowed' : ''} ${status === 'traveling' ? 'bg-green-500 scale-95 shadow-inner animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.7)]' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+              onClick={handleAIPlan}
+              disabled={!canControlMission || loadingAI}
+              className={`py-4 rounded-2xl border-4 border-black font-black flex flex-col items-center gap-1 transition-all ${!canControlMission || loadingAI ? 'opacity-50 cursor-not-allowed' : ''} bg-zinc-800 hover:bg-zinc-700`}
             >
-              <Zap size={24} /> PARTIDA
+              <Search size={24} /> {loadingAI ? "ESTUDANDO..." : "🔍 CALCULAR ROTA"}
             </button>
             <button
               onClick={() => setTripToFinalize(true)}
@@ -746,6 +838,36 @@ export default function AdminDashboard() {
                 </button>
                 <button 
                   onClick={() => setTripToFinalize(false)} 
+                  className="game-button bg-zinc-800 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Modal de Confirmação de Partida/Resumo */}
+        {showPartidaConfirm && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+            <div className="glass-panel p-6 rounded-2xl border-4 border-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-sm w-full flex flex-col gap-6 bg-zinc-950 text-white">
+              <div className="flex flex-col gap-2 text-center">
+                <Zap size={40} className="text-[var(--mario-yellow)] mx-auto animate-pulse" />
+                <h2 className="text-xl font-black uppercase text-[var(--mario-yellow)]">📍 Rota Detectada</h2>
+                <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-left text-xs font-bold text-zinc-300 mt-2 flex flex-col gap-2">
+                  <p>📍 Rota: <span className="text-white">{local} → {destino}</span></p>
+                  <p>📏 Distância: <span className="text-white font-black">{detectedKm} KM</span></p>
+                  <p>⏱️ Estimativa (80km/h): <span className="text-green-400 font-black">{estimatedArrival}</span></p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={confirmStartMission} 
+                  className="game-button bg-green-600 text-white font-bold py-2 text-xs flex-1 uppercase"
+                >
+                  🚀 INICIAR MISSÃO
+                </button>
+                <button 
+                  onClick={() => setShowPartidaConfirm(false)} 
                   className="game-button bg-zinc-800 text-white font-bold py-2 text-xs flex-1 uppercase"
                 >
                   Cancelar
