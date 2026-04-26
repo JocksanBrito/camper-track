@@ -32,6 +32,7 @@ export default function Home() {
     status_atual: "stopped" as "traveling" | "stopped",
     local_atual: "Posto Graal",
     next_destination: "Brasília",
+    foto_capa_url: "",
     updated_at: new Date().toISOString()
   });
   const [tripulacao, setTripulacao] = useState({
@@ -81,18 +82,19 @@ export default function Home() {
         .select("*")
         .limit(1)
         .single();
-      if (pf) {
-        setPerfilViagem({
-          nome_carro: pf.nome_carro || "Camper",
-          ano_carro: pf.ano_carro || "2026",
-          pais_atual: pf.pais_atual || "Brasil",
-          descricao_viagem: pf.descricao_viagem || "Expedição pelo coração do Brasil.",
-          status_atual: pf.status_atual || "stopped",
-          local_atual: pf.local_atual || "",
-          next_destination: pf.next_destination || "",
-          updated_at: pf.updated_at || new Date().toISOString()
-        });
-      }
+        if (pf) {
+          setPerfilViagem({
+            nome_carro: pf.nome_carro || "Camper",
+            ano_carro: pf.ano_carro || "2026",
+            pais_atual: pf.pais_atual || "Brasil",
+            descricao_viagem: pf.descricao_viagem || "Expedição pelo coração do Brasil.",
+            status_atual: pf.status_atual || "stopped",
+            local_atual: pf.local_atual || "",
+            next_destination: pf.next_destination || "",
+            foto_capa_url: pf.foto_capa_url || "",
+            updated_at: pf.updated_at || new Date().toISOString()
+          });
+        }
 
       // 3. Fetch Tripulação
       const { data: crew } = await supabase
@@ -197,6 +199,13 @@ export default function Home() {
                   Painel
                 </Link>
                 <Link
+                  href="/perfil"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
+                >
+                  Perfil
+                </Link>
+                <Link
                   href="/calendario"
                   onClick={() => setIsMenuOpen(false)}
                   className="game-button bg-zinc-800 text-white text-xs py-1 text-center font-bold"
@@ -226,6 +235,14 @@ export default function Home() {
       </div>
 
       <main className="w-full max-w-md md:max-w-4xl flex flex-col items-center text-center gap-4 z-10 pt-12">
+        {/* Banner de Capa */}
+        {perfilViagem.foto_capa_url && (
+          <div className="w-full h-48 md:h-64 rounded-3xl overflow-hidden border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative mb-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={perfilViagem.foto_capa_url} alt="Capa da Missão" className="w-full h-full object-cover" />
+          </div>
+        )}
+        
         {/* Header Dinâmico */}
         <div className="flex flex-col items-center gap-1 relative">
           <div className="bg-[var(--mario-red)] text-white font-black text-[10px] px-3 py-0.5 rounded-full uppercase tracking-widest game-border flex items-center gap-1">

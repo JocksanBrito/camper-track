@@ -52,12 +52,7 @@ export default function PerfilPage() {
         throw new Error("Você deve selecionar uma imagem.");
       }
 
-      // Tentar criar o bucket caso não exista
-      try {
-        await supabase.storage.createBucket('avatars', { public: true });
-      } catch (bucketError) {
-        // Ignora erro se o bucket já existir ou se falhar por falta de permissão
-      }
+
 
       const file = e.target.files[0];
       const fileExt = file.name.split(".").pop();
@@ -71,7 +66,26 @@ export default function PerfilPage() {
 
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
-      toast.success("Foto carregada com sucesso!");
+      
+      // Atualizar a tabela tripulacao imediatamente
+      const { data: updateData, error: updateError } = await supabase
+        .from("tripulacao")
+        .update({ foto_url: data.publicUrl })
+        .eq('user_id', user.id)
+        .select();
+      
+      console.log("Resultado do Update (Upload):", { data: updateData, error: updateError });
+
+      if (updateError) throw updateError;
+      toast.success("Foto de perfil atualizada!");
+
+      // Refresh local state
+      const { data: updatedProf } = await supabase
+        .from("tripulacao")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      setProfile(updatedProf);
     } catch (error: any) {
       console.error("Erro no Upload de Foto:", error);
       toast.error(error.message || "Erro no upload. Verifique as políticas de RLS.");
@@ -110,10 +124,13 @@ export default function PerfilPage() {
         console.log("Payload sendo enviado:", payload);
       }
 
-      const { error: profError } = await supabase
+      const { data: updateData, error: profError } = await supabase
         .from("tripulacao")
         .update(payload)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
+      
+      console.log("Resultado do Update (Save):", { data: updateData, error: profError });
 
       if (profError) throw profError;
 

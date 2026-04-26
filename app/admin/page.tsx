@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Zap, Coffee, Save, User, Home as HomeIcon, Settings, BrainCircuit, Users, ShieldCheck, Trash2, CheckCircle, Map as MapIcon, Key, XCircle, History, Search } from "lucide-react";
+import { Zap, Coffee, Save, User, Home as HomeIcon, Settings, BrainCircuit, Users, ShieldCheck, Trash2, CheckCircle, Map as MapIcon, Key, XCircle, History, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -26,6 +26,8 @@ export default function AdminDashboard() {
   const [anoCarro, setAnoCarro] = useState("");
   const [paisAtual, setPaisAtual] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [fotoCapaUrl, setFotoCapaUrl] = useState("");
+  const [uploadingCapa, setUploadingCapa] = useState(false);
 
   // GESTÃO DE TRIPULAÇÃO (MOTORISTA, COPILOTO, PASSAGEIRO)
   const [driverId, setDriverId] = useState("");
@@ -79,7 +81,10 @@ export default function AdminDashboard() {
           setStatus(profile.status_atual || "stopped");
           setLocal(profile.local_atual || "");
           setDestino(profile.next_destination || "");
+          setFotoCapaUrl(profile.foto_capa_url || "");
         }
+
+
 
         // 3. Carregar Configurações de IA
         const { data: aiData } = await supabase.from("configuracoes_ia").select("*").limit(1).maybeSingle();
@@ -142,6 +147,43 @@ export default function AdminDashboard() {
       router.refresh();
     }
     setSavingPerfil(false);
+  };
+
+  const handleUploadCapa = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingCapa(true);
+      if (!e.target.files || e.target.files.length === 0) {
+        throw new Error("Você deve selecionar uma imagem.");
+      }
+      
+      const file = e.target.files[0];
+      const fileExt = file.name.split(".").pop();
+      const filePath = `capa-${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("capas")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("capas").getPublicUrl(filePath);
+      setFotoCapaUrl(data.publicUrl);
+      
+      if (profileId) {
+        const { error: updateError } = await supabase
+          .from("perfil_viagem")
+          .update({ foto_capa_url: data.publicUrl })
+          .eq("id", profileId);
+          
+        if (updateError) throw updateError;
+        toast.success("Foto de capa atualizada!");
+      }
+    } catch (error: any) {
+      console.error("Erro no Upload de Capa:", error);
+      toast.error(error.message || "Erro no upload.");
+    } finally {
+      setUploadingCapa(false);
+    }
   };
 
   const handleUpdateTrip = async (e: React.FormEvent) => {
@@ -462,6 +504,17 @@ export default function AdminDashboard() {
         </Link>
       </header>
 
+      {/* BANNER DE CAPA */}
+      {fotoCapaUrl && (
+        <div className="w-full max-w-6xl h-48 rounded-2xl overflow-hidden border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={fotoCapaUrl} alt="Capa da Missão" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
+            <span className="text-xl font-black italic uppercase text-[var(--mario-yellow)] tracking-wider drop-shadow-md">Capa da Missão Atual</span>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl">
 
         {/* CARD: CONTROLE DE MISSÃO (START/STOP) */}
@@ -583,6 +636,28 @@ export default function AdminDashboard() {
           <input value={anoCarro} onChange={e => setAnoCarro(e.target.value)} placeholder="Ano/Modelo" className="bg-zinc-900 p-2 rounded border border-zinc-800" />
           <input value={paisAtual} onChange={e => setPaisAtual(e.target.value)} placeholder="País da Expedição" className="bg-zinc-900 p-2 rounded border border-zinc-800" />
           <textarea value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição da Missão" className="bg-zinc-900 p-2 rounded border border-zinc-800 h-24 resize-none" />
+          
+          {/* Upload de Foto de Capa */}
+          <div className="flex flex-col gap-1 mt-2">
+            <label className="text-[10px] font-bold text-zinc-500 uppercase">Foto de Capa</label>
+            <div className="relative w-full h-32 bg-zinc-800 rounded-xl border-2 border-zinc-800 overflow-hidden shadow-lg flex items-center justify-center">
+              {fotoCapaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fotoCapaUrl} alt="Capa" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-zinc-600 font-bold text-xs">SEM FOTO DE CAPA</span>
+              )}
+              {uploadingCapa && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <span className="animate-pulse text-white font-bold text-xs">CARREGANDO...</span>
+                </div>
+              )}
+            </div>
+            <label className="game-button bg-zinc-800 px-3 py-2 text-xs font-bold uppercase flex items-center justify-center gap-1 cursor-pointer mt-1">
+              <Upload size={16} /> {uploadingCapa ? "Carregando..." : "Alterar Capa"}
+              <input type="file" accept="image/*" onChange={handleUploadCapa} disabled={uploadingCapa} className="hidden" />
+            </label>
+          </div>
         </section>
 
         {/* CARD: NÚCLEO DE IA (CHAVES E TELEMETRIA) */}
