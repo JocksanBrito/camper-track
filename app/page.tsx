@@ -1,7 +1,7 @@
 "use client";
  
 import { useState, useEffect } from "react";
-import { Trophy, Compass, Zap, Star, Settings, Plus, Menu, X } from "lucide-react";
+import { Trophy, Compass, Zap, Star, Settings, Plus, Menu, X, Calendar } from "lucide-react";
 import { ProgressBar } from "@/components/ProgressBar";
 import { TrackMap } from "@/components/TrackMap";
 import { BottomNav } from "@/components/BottomNav";
