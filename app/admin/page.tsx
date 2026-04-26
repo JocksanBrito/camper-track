@@ -48,6 +48,7 @@ export default function AdminDashboard() {
   const [showPartidaConfirm, setShowPartidaConfirm] = useState(false);
   const [detectedKm, setDetectedKm] = useState(0);
   const [estimatedArrival, setEstimatedArrival] = useState("");
+  const [detectedRoute, setDetectedRoute] = useState("");
   // INTERFACE
   const [savingMission, setSavingMission] = useState(false);
   const [savingPerfil, setSavingPerfil] = useState(false);
@@ -385,29 +386,15 @@ export default function AdminDashboard() {
     setLoadingAI(true);
 
     let calcDist = "119km";
-    let minutosEstimados = 90;
 
     try {
       if (openaiKey) {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch("/api/ai-proxy", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openaiKey}`
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
-            messages: [
-              {
-                role: "system",
-                content: "You are a GPS. Determine the exact road distance between the requested cities. Return JSON: {'distancia_km': number}."
-              },
-              {
-                role: "user",
-                content: `Route from ${local} to ${destino}.`
-              }
-            ]
+            openaiKey,
+            prompt: `Calculate distance from ${local} to ${destino}.`
           })
         });
 
@@ -416,14 +403,10 @@ export default function AdminDashboard() {
           const result = JSON.parse(json.choices[0].message.content);
           calcDist = `${result.distancia_km}km`;
         }
-      } else if (geminiKey) {
-        calcDist = "86.7km";
-      } else {
-        toast.warning("Nenhuma chave de IA cadastrada. Usando cálculo estático.");
       }
 
       const kmNumber = parseFloat(calcDist.replace(/[^\d.]/g, '')) || 86.7;
-      minutosEstimados = Math.round((kmNumber / 80) * 60);
+      const minutosEstimados = Math.round((kmNumber / 80) * 60);
 
       const minsStr = minutosEstimados >= 60 
         ? `${Math.floor(minutosEstimados / 60)}h ${minutosEstimados % 60}m` 
@@ -431,9 +414,10 @@ export default function AdminDashboard() {
 
       setDetectedKm(kmNumber);
       setEstimatedArrival(minsStr);
+      setDetectedRoute("Cálculo de Rota via IA");
       setShowPartidaConfirm(true);
     } catch (e: any) {
-      toast.error("Erro na IA: " + e.message);
+      toast.error("Erro no Cálculo: " + e.message);
     } finally {
       setLoadingAI(false);
     }
@@ -444,11 +428,9 @@ export default function AdminDashboard() {
       const { error } = await supabase.from("viagens").insert({
         origem: local,
         destino: destino,
-        distancia: `${detectedKm}km`,
+        distancia: detectedKm.toString(),
         status: 'traveling',
-        criado_por: profileId,
-        distancia_total: detectedKm,
-        tempo_estimado_minutos: Math.round((detectedKm / 80) * 60)
+        criado_por: profileId
       });
       if (error) throw error;
 
@@ -855,8 +837,25 @@ export default function AdminDashboard() {
                 <h2 className="text-xl font-black uppercase text-[var(--mario-yellow)]">📍 Rota Detectada</h2>
                 <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-xl text-left text-xs font-bold text-zinc-300 mt-2 flex flex-col gap-2">
                   <p>📍 Rota: <span className="text-white">{local} → {destino}</span></p>
-                  <p>📏 Distância: <span className="text-white font-black">{detectedKm} KM</span></p>
+                  <div className="flex items-center gap-2 text-white">
+                    <span>📐 Distância (KM):</span>
+                    <input 
+                      type="number" 
+                      value={detectedKm}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setDetectedKm(val);
+                        const mins = Math.round((val / 80) * 60);
+                        const minsStr = mins >= 60 
+                          ? `${Math.floor(mins / 60)}h ${mins % 60}m` 
+                          : `${mins}m`;
+                        setEstimatedArrival(minsStr);
+                      }}
+                      className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-white font-black w-24 text-right"
+                    />
+                  </div>
                   <p>⏱️ Estimativa (80km/h): <span className="text-green-400 font-black">{estimatedArrival}</span></p>
+                  {detectedRoute && <p>🛣️ Fonte: <span className="text-blue-400 font-bold">Via {detectedRoute}</span></p>}
                 </div>
               </div>
               <div className="flex gap-4">
