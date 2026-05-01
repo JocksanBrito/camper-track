@@ -115,7 +115,19 @@ export default function DiarioDeBordo() {
     setPhotos([]);
     fetchPhotos();
     setSelectedCity("Todas"); // Reseta a cidade ao trocar o álbum principal
+    
+    // Auto-preencher o álbum no formulário ao selecionar um país
+    if (selectedCategoriaId !== "Todos") {
+      setCategoriaId(selectedCategoriaId);
+    }
   }, [selectedCategoriaId]);
+
+  // Sincronizar localização do formulário ao selecionar uma cidade
+  useEffect(() => {
+    if (selectedCity !== "Todas") {
+      setLocalizacao(selectedCity);
+    }
+  }, [selectedCity]);
 
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +155,7 @@ export default function DiarioDeBordo() {
           .from("diario_bordo")
           .insert({
             foto_url: urlData.publicUrl,
-            legenda: files.length > 1 ? `${legenda} (${i + 1}/${files.length})` : legenda,
+            legenda: legenda,
             localizacao,
             categoria_id: categoriaId || null,
           });
@@ -308,11 +320,19 @@ export default function DiarioDeBordo() {
     }
   };
 
-  // Lógica de Filtro Dinâmico por Cidade (Localização)
-  const uniqueCities = Array.from(new Set(photos.map(p => p.localizacao).filter(Boolean)));
-  const filteredPhotos = selectedCity === "Todas" 
+  // Lógica de Filtro Dinâmico Hierárquico
+  // 1. Filtramos as fotos pelo álbum (País) selecionado
+  const countryPhotos = selectedCategoriaId === "Todos" 
     ? photos 
-    : photos.filter(p => p.localizacao === selectedCity);
+    : photos.filter(p => p.categoria_id === selectedCategoriaId);
+
+  // 2. Extraímos as cidades únicas APENAS das fotos do álbum selecionado
+  const uniqueCities = Array.from(new Set(countryPhotos.map(p => p.localizacao).filter(Boolean)));
+
+  // 3. Filtramos pela cidade selecionada dentro do conjunto do país
+  const filteredPhotos = selectedCity === "Todas" 
+    ? countryPhotos 
+    : countryPhotos.filter(p => p.localizacao === selectedCity);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center p-4 pt-12 pb-24 gap-6">
@@ -341,11 +361,14 @@ export default function DiarioDeBordo() {
           </p>
         </div>
 
-        {/* Filtros de Álbum (Países) e Cidades Dinâmicas */}
+        {/* Filtros de Álbum (Países) */}
         <div className="w-full flex flex-col items-center gap-3">
           <div className="w-full flex flex-wrap justify-center gap-2 mt-2">
             <button
-              onClick={() => setSelectedCategoriaId("Todos")}
+              onClick={() => {
+                setSelectedCategoriaId("Todos");
+                setSelectedCity("Todas");
+              }}
               className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 transition-all ${
                 selectedCategoriaId === "Todos"
                   ? "bg-[var(--mario-yellow)] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -357,7 +380,10 @@ export default function DiarioDeBordo() {
             {categorias.filter(cat => cat.nome !== "Geral").map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategoriaId(cat.id)}
+                onClick={() => {
+                  setSelectedCategoriaId(cat.id);
+                  setSelectedCity("Todas");
+                }}
                 className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 transition-all ${
                   selectedCategoriaId === cat.id
                     ? "bg-[var(--mario-yellow)] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
@@ -368,37 +394,6 @@ export default function DiarioDeBordo() {
               </button>
             ))}
           </div>
-
-          {/* Sub-filtros Automáticos (Carrossel Horizontal Mobile-First) */}
-          {uniqueCities.length > 0 && (
-            <div className="w-full flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
-              <div className="flex flex-nowrap gap-2 mx-auto">
-                <button
-                  onClick={() => setSelectedCity("Todas")}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border-2 transition-all ${
-                    selectedCity === "Todas"
-                      ? "bg-white text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                      : "bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600"
-                  }`}
-                >
-                  Todas as Cidades
-                </button>
-                {uniqueCities.map((city: any) => (
-                  <button
-                    key={city}
-                    onClick={() => setSelectedCity(city)}
-                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border-2 transition-all ${
-                      selectedCity === city
-                        ? "bg-white text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                        : "bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600"
-                    }`}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Botão Gerenciar Álbuns (Apenas se canManage) */}
@@ -505,19 +500,86 @@ export default function DiarioDeBordo() {
           </form>
         )}
 
-        {/* Galeria */}
+        {/* Galeria / Álbuns Hierárquicos */}
         {loading ? (
-          <div className="text-zinc-500 font-bold text-xs animate-pulse mt-8">
+          <div className="text-zinc-500 font-bold text-xs animate-pulse mt-8 uppercase tracking-widest">
             CARREGANDO DIÁRIO...
           </div>
-        ) : photos.length === 0 ? (
+        ) : filteredPhotos.length === 0 ? (
           <div className="text-zinc-600 font-bold text-xs mt-8 uppercase italic flex flex-col items-center gap-2">
             <Folder size={32} className="text-zinc-800" />
-            Nenhum registro nesta região ainda.
+            Nenhum registro encontrado.
+          </div>
+        ) : selectedCategoriaId === "Todos" ? (
+          /* 1. VISÃO DE PAÍSES (Pastas de Países) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full animate-in fade-in zoom-in-95 duration-300">
+            {categorias.filter(cat => cat.nome !== "Geral").map((cat) => {
+              const countryPhotos = photos.filter(p => p.categoria_id === cat.id);
+              if (countryPhotos.length === 0) return null;
+              const coverPhoto = countryPhotos[0]?.foto_url;
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => setSelectedCategoriaId(cat.id)}
+                  className="group relative cursor-pointer"
+                >
+                  <div className="absolute inset-0 bg-red-600 rounded-2xl translate-x-2 translate-y-2 border-4 border-black group-hover:translate-x-3 group-hover:translate-y-3 transition-all" />
+                  <div className="relative glass-panel rounded-2xl border-4 border-black bg-zinc-900 overflow-hidden aspect-[4/3] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <img src={coverPhoto} alt={cat.nome} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-left">
+                      <h3 className="text-xl font-black uppercase text-[var(--mario-yellow)] mb-1">{cat.nome}</h3>
+                      <p className="text-[10px] font-black uppercase text-white/80 flex items-center gap-1">
+                        <Folder size={10} /> {countryPhotos.length} Momentos
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : selectedCity === "Todas" ? (
+          /* 2. VISÃO DE CIDADES (Pastas de Cidades dentro do País) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full animate-in fade-in zoom-in-95 duration-300">
+            {uniqueCities.map((city: any) => {
+              const cityPhotos = countryPhotos.filter(p => p.localizacao === city);
+              const coverPhoto = cityPhotos[0]?.foto_url;
+              return (
+                <div
+                  key={city}
+                  onClick={() => setSelectedCity(city)}
+                  className="group relative cursor-pointer"
+                >
+                  <div className="absolute inset-0 bg-[var(--mario-yellow)] rounded-2xl translate-x-2 translate-y-2 border-4 border-black group-hover:translate-x-3 group-hover:translate-y-3 transition-all" />
+                  <div className="relative glass-panel rounded-2xl border-4 border-black bg-zinc-900 overflow-hidden aspect-[4/3] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <img src={coverPhoto} alt={city} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-left">
+                      <h3 className="text-xl font-black uppercase text-white mb-1">{city}</h3>
+                      <p className="text-[10px] font-black uppercase text-white/80 flex items-center gap-1">
+                        <Camera size={10} /> {cityPhotos.length} Fotos
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            {filteredPhotos.map((photo) => {
+          /* 3. VISÃO DE GALERIA (Fotos da Cidade Selecionada) */
+          <div className="w-full flex flex-col gap-4 animate-in fade-in duration-300">
+            {/* Botão Voltar para Cidades */}
+            <div className="w-full flex justify-start mb-2">
+              <button
+                onClick={() => setSelectedCity("Todas")}
+                className="flex items-center gap-2 text-[10px] font-black uppercase text-zinc-400 hover:text-white transition-colors"
+              >
+                <ChevronLeft size={14} /> Voltar para os Álbuns de {categorias.find(c => c.id === selectedCategoriaId)?.nome || "Cidades"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {filteredPhotos.map((photo) => {
               const catNome = categorias.find(c => c.id === photo.categoria_id)?.nome || "Geral";
               return (
                 <div
@@ -537,9 +599,11 @@ export default function DiarioDeBordo() {
                         <MapPin size={8} /> {photo.localizacao}
                       </span>
                     )}
-                    <span className="absolute top-2 right-2 text-[8px] bg-[var(--mario-yellow)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                      {catNome}
-                    </span>
+                    {catNome !== "Geral" && (
+                      <span className="absolute top-2 right-2 text-[8px] bg-[var(--mario-yellow)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-wider border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                        {catNome}
+                      </span>
+                    )}
                   </div>
                   {photo.legenda && (
                     <p className="text-sm font-bold text-left text-zinc-100 mt-1">
@@ -582,6 +646,7 @@ export default function DiarioDeBordo() {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </main>
@@ -628,9 +693,14 @@ export default function DiarioDeBordo() {
               />
             </div>
             <div className="p-6 border-t-4 border-black bg-zinc-950 text-left">
-              <span className="bg-[var(--mario-yellow)] text-black text-xs font-black px-3 py-1 rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase">
-                {categorias.find(c => c.id === activePhoto.categoria_id)?.nome || "Geral"}
-              </span>
+              {(() => {
+                const photoCatNome = categorias.find(c => c.id === activePhoto.categoria_id)?.nome || "Geral";
+                return photoCatNome !== "Geral" ? (
+                  <span className="bg-[var(--mario-yellow)] text-black text-xs font-black px-3 py-1 rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase">
+                    {photoCatNome}
+                  </span>
+                ) : null;
+              })()}
               {activePhoto.legenda && (
                 <p className="text-lg font-bold text-white mt-4">
                   {activePhoto.legenda}
