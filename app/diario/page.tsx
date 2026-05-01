@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Camera, ArrowLeft, Upload, MapPin, Folder, Trash2 } from "lucide-react";
+import { Camera, ArrowLeft, Upload, MapPin, Folder, Trash2, ChevronLeft, ChevronRight, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -13,9 +13,13 @@ export default function DiarioDeBordo() {
   const [loading, setLoading] = useState(true);
   const [legenda, setLegenda] = useState("");
   const [localizacao, setLocalizacao] = useState("");
+  const [parentCatId, setParentCatId] = useState<string>("");
+  const [selectedCountryId, setSelectedCountryId] = useState("Todos");
   const [categoriaId, setCategoriaId] = useState<string>("");
   const [selectedCategoriaId, setSelectedCategoriaId] = useState("Todos");
-  const [file, setFile] = useState<File | null>(null);
+  const [selectedCity, setSelectedCity] = useState("Todas");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{current: number, total: number} | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // Estados v2.0
@@ -27,6 +31,8 @@ export default function DiarioDeBordo() {
   const [editLegenda, setEditLegenda] = useState("");
   const [editLocalizacao, setEditLocalizacao] = useState("");
   const [editCategoriaId, setEditCategoriaId] = useState<string>("");
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
 
   const [userRole, setUserRole] = useState<string>("");
   const [userFuncao, setUserFuncao] = useState<string>("");
@@ -65,13 +71,11 @@ export default function DiarioDeBordo() {
       if (error) throw error;
       setCategorias(data || []);
       
-      const geralCat = data?.find(c => c.nome === "Geral");
-      const visibleCats = data?.filter(c => c.nome !== "Geral") || [];
-      
-      if (visibleCats.length > 0) {
-        setCategoriaId(visibleCats[0].id);
-      } else if (geralCat) {
-        setCategoriaId(geralCat.id);
+      // Se não houver categoria selecionada no upload, tenta pegar a primeira disponível
+      if (!categoriaId && data && data.length > 0) {
+        const firstCity = data.find(c => c.parent_id !== null);
+        if (firstCity) setCategoriaId(firstCity.id);
+        else setCategoriaId(data[0].id);
       }
     } catch (error) {
       console.error("Erro ao buscar categorias:", error);
@@ -83,14 +87,13 @@ export default function DiarioDeBordo() {
       setLoading(true);
       let query = supabase
         .from("diario_bordo")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*");
 
       if (selectedCategoriaId !== "Todos") {
         query = query.eq("categoria_id", selectedCategoriaId);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       setPhotos(data || []);
     } catch (error: any) {
@@ -101,45 +104,58 @@ export default function DiarioDeBordo() {
     }
   };
 
+  // Busca inicial: Role e Categorias (Apenas uma vez)
   useEffect(() => {
     fetchUserRole();
     fetchCategorias();
+  }, [isLoggedIn]);
+
+  // Busca de Fotos: Sempre que trocar o filtro
+  useEffect(() => {
+    setPhotos([]);
     fetchPhotos();
+    setSelectedCity("Todas"); // Reseta a cidade ao trocar o álbum principal
   }, [selectedCategoriaId]);
 
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return toast.error("Selecione uma imagem!");
+    if (files.length === 0) return toast.error("Selecione pelo menos uma imagem!");
 
     try {
       setUploading(true);
+      
+      for (let i = 0; i < files.length; i++) {
+        const currentFile = files[i];
+        setUploadProgress({ current: i + 1, total: files.length });
 
-      const fileExt = file.name.split(".").pop();
-      const filePath = `diario-${Math.random()}.${fileExt}`;
+        const fileExt = currentFile.name.split(".").pop();
+        const filePath = `diario-${Math.random()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("galeria")
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from("galeria")
+          .upload(filePath, currentFile);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from("galeria").getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from("galeria").getPublicUrl(filePath);
 
-      const { error: insertError } = await supabase
-        .from("diario_bordo")
-        .insert({
-          foto_url: urlData.publicUrl,
-          legenda,
-          localizacao,
-          categoria_id: categoriaId || null,
-        });
+        const { error: insertError } = await supabase
+          .from("diario_bordo")
+          .insert({
+            foto_url: urlData.publicUrl,
+            legenda: files.length > 1 ? `${legenda} (${i + 1}/${files.length})` : legenda,
+            localizacao,
+            categoria_id: categoriaId || null,
+          });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
 
-      toast.success("Momento registrado no Diário!");
+      toast.success(files.length > 1 ? `${files.length} fotos registradas!` : "Momento registrado!");
       setLegenda("");
       setLocalizacao("");
-      setFile(null);
+      setFiles([]);
+      setUploadProgress(null);
       
       const fileInput = document.getElementById("file-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
@@ -149,6 +165,7 @@ export default function DiarioDeBordo() {
       toast.error(error.message || "Erro ao publicar.");
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -160,14 +177,19 @@ export default function DiarioDeBordo() {
       const slug = newCatNome.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
       const { error } = await supabase
         .from("diario_categorias")
-        .insert({ nome: newCatNome.trim(), slug });
+        .insert({ 
+          nome: newCatNome.trim(), 
+          slug,
+          parent_id: parentCatId || null 
+        });
       
       if (error) throw error;
-      toast.success("Categoria adicionada!");
+      toast.success("Álbum adicionado!");
       setNewCatNome("");
+      setParentCatId("");
       fetchCategorias();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao adicionar categoria.");
+      toast.error(error.message || "Erro ao adicionar álbum.");
     }
   };
 
@@ -221,6 +243,43 @@ export default function DiarioDeBordo() {
     }
   };
 
+  const handleNextPhoto = () => {
+    if (!activePhoto || filteredPhotos.length < 2) return;
+    const currentIndex = filteredPhotos.findIndex(p => p.id === activePhoto.id);
+    if (currentIndex === -1) return;
+    const nextIndex = (currentIndex + 1) % filteredPhotos.length;
+    setActivePhoto(filteredPhotos[nextIndex]);
+  };
+
+  const handlePrevPhoto = () => {
+    if (!activePhoto || filteredPhotos.length < 2) return;
+    const currentIndex = filteredPhotos.findIndex(p => p.id === activePhoto.id);
+    if (currentIndex === -1) return;
+    const prevIndex = (currentIndex - 1 + filteredPhotos.length) % filteredPhotos.length;
+    setActivePhoto(filteredPhotos[prevIndex]);
+  };
+
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editCategoryName.trim()) return;
+    
+    try {
+      const slug = editCategoryName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+      const { error } = await supabase
+        .from("diario_categorias")
+        .update({ nome: editCategoryName.trim(), slug })
+        .eq("id", editingCategory.id);
+      
+      if (error) throw error;
+      toast.success("Álbum renomeado!");
+      setEditingCategory(null);
+      fetchCategorias();
+      fetchPhotos();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao renomear álbum.");
+    }
+  };
+
   const handleDeletePhoto = async (photo: any) => {
     if (!confirm("Tem certeza que deseja excluir esta foto?")) return;
     
@@ -249,6 +308,12 @@ export default function DiarioDeBordo() {
     }
   };
 
+  // Lógica de Filtro Dinâmico por Cidade (Localização)
+  const uniqueCities = Array.from(new Set(photos.map(p => p.localizacao).filter(Boolean)));
+  const filteredPhotos = selectedCity === "Todas" 
+    ? photos 
+    : photos.filter(p => p.localizacao === selectedCity);
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center p-4 pt-12 pb-24 gap-6">
       {/* Botão Voltar */}
@@ -276,31 +341,64 @@ export default function DiarioDeBordo() {
           </p>
         </div>
 
-        {/* Filtros de Álbum (Chips) */}
-        <div className="w-full flex flex-wrap justify-center gap-2 mt-2">
-          <button
-            onClick={() => setSelectedCategoriaId("Todos")}
-            className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 transition-all ${
-              selectedCategoriaId === "Todos"
-                ? "bg-[var(--mario-yellow)] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700"
-            }`}
-          >
-            Todos
-          </button>
-          {categorias.filter(cat => cat.nome !== "Geral").map((cat) => (
+        {/* Filtros de Álbum (Países) e Cidades Dinâmicas */}
+        <div className="w-full flex flex-col items-center gap-3">
+          <div className="w-full flex flex-wrap justify-center gap-2 mt-2">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategoriaId(cat.id)}
+              onClick={() => setSelectedCategoriaId("Todos")}
               className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 transition-all ${
-                selectedCategoriaId === cat.id
+                selectedCategoriaId === "Todos"
                   ? "bg-[var(--mario-yellow)] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700"
               }`}
             >
-              {cat.nome}
+              Todos os Países
             </button>
-          ))}
+            {categorias.filter(cat => cat.nome !== "Geral").map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategoriaId(cat.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border-2 transition-all ${
+                  selectedCategoriaId === cat.id
+                    ? "bg-[var(--mario-yellow)] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                    : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700"
+                }`}
+              >
+                {cat.nome}
+              </button>
+            ))}
+          </div>
+
+          {/* Sub-filtros Automáticos (Carrossel Horizontal Mobile-First) */}
+          {uniqueCities.length > 0 && (
+            <div className="w-full flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
+              <div className="flex flex-nowrap gap-2 mx-auto">
+                <button
+                  onClick={() => setSelectedCity("Todas")}
+                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border-2 transition-all ${
+                    selectedCity === "Todas"
+                      ? "bg-white text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      : "bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600"
+                  }`}
+                >
+                  Todas as Cidades
+                </button>
+                {uniqueCities.map((city: any) => (
+                  <button
+                    key={city}
+                    onClick={() => setSelectedCity(city)}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold uppercase border-2 transition-all ${
+                      selectedCity === city
+                        ? "bg-white text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        : "bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600"
+                    }`}
+                  >
+                    {city}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Botão Gerenciar Álbuns (Apenas se canManage) */}
@@ -329,9 +427,15 @@ export default function DiarioDeBordo() {
                   id="file-input"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   className="text-xs text-zinc-400 bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl w-full font-bold"
                 />
+                {files.length > 0 && (
+                  <span className="text-[9px] text-[var(--mario-green)] font-bold mt-1 uppercase">
+                    {files.length} {files.length === 1 ? "foto selecionada" : "fotos selecionadas"}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -360,11 +464,17 @@ export default function DiarioDeBordo() {
                 <MapPin size={14} className="absolute left-3 text-zinc-500" />
                 <input
                   type="text"
+                  list="city-suggestions"
                   value={localizacao}
                   onChange={(e) => setLocalizacao(e.target.value)}
                   placeholder="Onde essa foto foi tirada?"
                   className="bg-zinc-800 border-2 border-zinc-700 p-2 pl-9 rounded-xl text-white text-xs font-bold w-full"
                 />
+                <datalist id="city-suggestions">
+                  {uniqueCities.map((city: any) => (
+                    <option key={city} value={city} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -388,7 +498,9 @@ export default function DiarioDeBordo() {
                 uploading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {uploading ? "Publicando..." : "Publicar no Diário"}
+              {uploading 
+                ? `Enviando (${uploadProgress?.current}/${uploadProgress?.total})...` 
+                : files.length > 1 ? `Publicar ${files.length} Fotos` : "Publicar no Diário"}
             </button>
           </form>
         )}
@@ -405,7 +517,7 @@ export default function DiarioDeBordo() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-            {photos.map((photo) => {
+            {filteredPhotos.map((photo) => {
               const catNome = categorias.find(c => c.id === photo.categoria_id)?.nome || "Geral";
               return (
                 <div
@@ -478,13 +590,36 @@ export default function DiarioDeBordo() {
       {activePhoto && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
           <div className="relative max-w-4xl w-full bg-zinc-900 border-4 border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            {/* Contador de Fotos */}
+            <div className="absolute top-4 left-4 z-[60] bg-black/60 text-white px-3 py-1 text-[10px] font-black rounded-full border-2 border-white/50">
+              {filteredPhotos.findIndex(p => p.id === activePhoto.id) + 1} DE {filteredPhotos.length}
+            </div>
             <button
               onClick={() => setActivePhoto(null)}
-              className="absolute top-4 right-4 bg-black text-white px-3 py-1 text-xs font-black rounded-full border-2 border-white z-10"
+              className="absolute top-4 right-4 bg-black/60 hover:bg-black text-white px-3 py-1 text-xs font-black rounded-full border-2 border-white z-[60] transition-all"
             >
               FECHAR
             </button>
-            <div className="relative w-full h-[60vh] bg-black">
+
+            {/* Setas de Navegação */}
+            {filteredPhotos.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handlePrevPhoto(); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-[60] bg-black/50 hover:bg-black text-white p-2 rounded-full border-2 border-white/50 hover:border-white transition-all group"
+                >
+                  <ChevronLeft size={32} className="group-hover:scale-110 transition-transform" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleNextPhoto(); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-[60] bg-black/50 hover:bg-black text-white p-2 rounded-full border-2 border-white/50 hover:border-white transition-all group"
+                >
+                  <ChevronRight size={32} className="group-hover:scale-110 transition-transform" />
+                </button>
+              </>
+            )}
+
+            <div className="relative w-full h-[60vh] bg-black flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={activePhoto.foto_url}
@@ -536,20 +671,35 @@ export default function DiarioDeBordo() {
               </button>
             </div>
 
-            <form onSubmit={handleAddCategory} className="flex gap-2">
-              <input
-                type="text"
-                value={newCatNome}
-                onChange={(e) => setNewCatNome(e.target.value)}
-                placeholder="Novo Álbum (ex: Eslovênia)"
-                className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white text-xs font-bold flex-1"
-              />
-              <button
-                type="submit"
-                className="game-button bg-[var(--mario-green)] text-white text-xs px-4"
-              >
-                +
-              </button>
+            <form onSubmit={handleAddCategory} className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCatNome}
+                  onChange={(e) => setNewCatNome(e.target.value)}
+                  placeholder="Nome do Álbum (ex: Itália ou Fardella)"
+                  className="bg-zinc-800 border-2 border-zinc-700 p-2 rounded-xl text-white text-xs font-bold flex-1"
+                />
+                <button
+                  type="submit"
+                  className="game-button bg-[var(--mario-green)] text-white text-xs px-4"
+                >
+                  +
+                </button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] font-black uppercase text-zinc-500">Este álbum é uma cidade de:</label>
+                <select
+                  value={parentCatId}
+                  onChange={(e) => setParentCatId(e.target.value)}
+                  className="bg-zinc-800 border-2 border-zinc-700 p-1.5 rounded-xl text-white text-[10px] font-bold w-full"
+                >
+                  <option value="">(Nenhum - Este é um País)</option>
+                  {categorias.filter(c => !c.parent_id && c.nome !== "Geral").map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                  ))}
+                </select>
+              </div>
             </form>
 
             <div className="flex flex-col gap-2 max-h-60 overflow-y-auto mt-2">
@@ -559,17 +709,57 @@ export default function DiarioDeBordo() {
                   className="flex justify-between items-center bg-black/40 p-2 rounded-xl border border-zinc-800"
                 >
                   <span className="text-xs font-bold text-white">{cat.nome}</span>
-                  {cat.nome !== "Geral" && (
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => handleDeleteCategory(cat.id, cat.nome)}
-                      className="text-[10px] bg-red-600/80 hover:bg-red-600 text-white px-2 py-1 rounded font-bold uppercase"
+                      onClick={() => {
+                        setEditingCategory(cat);
+                        setEditCategoryName(cat.nome);
+                      }}
+                      className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white p-1.5 rounded font-bold uppercase border border-zinc-700"
+                      title="Editar Nome"
                     >
-                      Excluir
+                      <Edit2 size={12} />
                     </button>
-                  )}
+                    {cat.nome !== "Geral" && (
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.nome)}
+                        className="text-[10px] bg-red-600/80 hover:bg-red-600 text-white px-2 py-1 rounded font-bold uppercase"
+                      >
+                        Excluir
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+
+            {/* Formulário de Edição de Álbum (Apenas se editingCategory) */}
+            {editingCategory && (
+              <form onSubmit={handleUpdateCategory} className="flex flex-col gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 animate-in slide-in-from-top-2">
+                <label className="text-[10px] font-black uppercase text-[var(--mario-yellow)]">Renomear Álbum</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editCategoryName}
+                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    className="bg-zinc-900 border-2 border-zinc-700 p-2 rounded-xl text-white text-xs font-bold flex-1"
+                  />
+                  <button
+                    type="submit"
+                    className="game-button bg-[var(--mario-green)] text-white text-[10px] px-3"
+                  >
+                    OK
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(null)}
+                    className="game-button bg-zinc-700 text-white text-[10px] px-3"
+                  >
+                    X
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
