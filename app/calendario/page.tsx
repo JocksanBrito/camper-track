@@ -6,11 +6,13 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { BottomNav } from "@/components/BottomNav";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CalendarioDeMissao() {
   const [trips, setTrips] = useState<any[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const { isLoggedIn } = useAuth();
   const [userRole, setUserRole] = useState<string>("");
   const [userFuncao, setUserFuncao] = useState<string>("");
 
@@ -24,31 +26,42 @@ export default function CalendarioDeMissao() {
   const [observacoes, setObservacoes] = useState("");
   const [loading, setLoading] = useState(false);
   const [editingTrip, setEditingTrip] = useState<any>(null);
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 1)); // Abril 2026
+  const [currentDate, setCurrentDate] = useState(new Date()); // Inicia no mês real de hoje
 
-  const canEdit = userRole === "admin" || userFuncao === "copiloto";
+  const canEdit = isLoggedIn && (userRole === "admin" || userFuncao === "copiloto");
 
   useEffect(() => {
     setIsMounted(true);
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: prof } = await supabase
-          .from("tripulacao")
-          .select("role, funcao_missao")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (prof) {
-          setUserRole(prof.role || "usuario");
-          setUserFuncao(prof.funcao_missao || "passageiro");
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from("tripulacao")
+            .select("role, funcao_missao")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (prof) {
+            setUserRole(prof.role || "usuario");
+            setUserFuncao(prof.funcao_missao || "passageiro");
+          }
+        } else {
+          setUserRole("");
+          setUserFuncao("");
         }
+      } catch (e) {
+        console.error("Erro auth:", e);
       }
     };
     fetchUser();
 
     const fetchTrips = async () => {
-      const { data } = await supabase.from("calendario_missao").select("*");
-      if (data) setTrips(data);
+      try {
+        const { data } = await supabase.from("calendario_missao").select("*");
+        if (data) setTrips(data);
+      } catch (e) {
+        console.error("Erro trips:", e);
+      }
     };
     fetchTrips();
   }, []);
@@ -82,6 +95,16 @@ export default function CalendarioDeMissao() {
   const getDayClass = (trip: any) => {
     if (!trip)
       return "border-zinc-800 bg-zinc-950/40 text-zinc-500 cursor-default";
+    
+    const tripDate = new Date(trip.data_partida);
+    const now = new Date();
+    
+    // Se a viagem já passou do horário de partida, fica Laranja (Concluída/Passada)
+    if (tripDate < now) {
+      return "border-[var(--mario-orange)] bg-[var(--mario-orange)]/20 text-[var(--mario-orange)] cursor-pointer opacity-80";
+    }
+
+    // Se for futura, fica verde e pulsante
     return "border-green-500 bg-green-500/20 text-white cursor-pointer hover:scale-105 animate-pulse";
   };
 
@@ -226,22 +249,47 @@ export default function CalendarioDeMissao() {
                   FECHAR
                 </button>
                 {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingTrip(selectedTrip);
-                      setOrigem(selectedTrip.origem || "");
-                      setDestino(selectedTrip.destino || "");
-                      setDataPartida(selectedTrip.data_partida ? selectedTrip.data_partida.substring(0, 16) : "");
-                      setDataChegadaPrevista(selectedTrip.data_chegada_prevista ? selectedTrip.data_chegada_prevista.substring(0, 16) : "");
-                      setObservacoes(selectedTrip.observacoes || "");
-                      setIsModalOpen(true);
-                      setSelectedTrip(null);
-                    }}
-                    className="flex-1 game-button bg-[var(--mario-yellow)] text-black font-black py-2 text-xs border-2 border-black"
-                  >
-                    EDITAR
-                  </button>
+                  <div className="flex flex-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTrip(selectedTrip);
+                        setOrigem(selectedTrip.origem || "");
+                        setDestino(selectedTrip.destino || "");
+                        setDataPartida(selectedTrip.data_partida ? selectedTrip.data_partida.substring(0, 16) : "");
+                        setDataChegadaPrevista(selectedTrip.data_chegada_prevista ? selectedTrip.data_chegada_prevista.substring(0, 16) : "");
+                        setObservacoes(selectedTrip.observacoes || "");
+                        setIsModalOpen(true);
+                        setSelectedTrip(null);
+                      }}
+                      className="flex-1 game-button bg-[var(--mario-yellow)] text-black font-black py-2 text-xs border-2 border-black"
+                    >
+                      EDITAR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm("Deseja realmente EXCLUIR esta parada do cronograma?")) return;
+                        const { error } = await supabase
+                          .from("calendario_missao")
+                          .delete()
+                          .eq("id", selectedTrip.id);
+                        
+                        if (error) {
+                          toast.error("Erro ao excluir: " + error.message);
+                        } else {
+                          toast.success("Parada removida!");
+                          setSelectedTrip(null);
+                          // Atualiza a lista
+                          const { data } = await supabase.from("calendario_missao").select("*");
+                          if (data) setTrips(data);
+                        }
+                      }}
+                      className="flex-1 game-button bg-[var(--mario-red)] text-white font-black py-2 text-xs border-2 border-black"
+                    >
+                      EXCLUIR
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

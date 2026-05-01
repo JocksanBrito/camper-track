@@ -28,10 +28,10 @@ export default function DiarioDeBordo() {
   const [editLocalizacao, setEditLocalizacao] = useState("");
   const [editCategoriaId, setEditCategoriaId] = useState<string>("");
 
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userFuncao, setUserFuncao] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userFuncao, setUserFuncao] = useState<string>("");
 
-  const canManage = userRole === "admin" || userFuncao === "copiloto";
+  const canManage = isLoggedIn && (userRole === "admin" || userFuncao === "copiloto");
 
   const fetchUserRole = async () => {
     try {
@@ -44,9 +44,12 @@ export default function DiarioDeBordo() {
           .maybeSingle();
         
         if (prof) {
-          setUserRole(prof.role);
-          setUserFuncao(prof.funcao_missao);
+          setUserRole(prof.role || "usuario");
+          setUserFuncao(prof.funcao_missao || "passageiro");
         }
+      } else {
+        setUserRole("");
+        setUserFuncao("");
       }
     } catch (error) {
       console.error("Erro ao buscar role:", error);
@@ -143,7 +146,6 @@ export default function DiarioDeBordo() {
       
       fetchPhotos();
     } catch (error: any) {
-      console.error("Erro ao publicar:", error);
       toast.error(error.message || "Erro ao publicar.");
     } finally {
       setUploading(false);

@@ -32,28 +32,42 @@ export function TravelLog() {
 
   useEffect(() => {
     const fetchViagens = async () => {
-      const { data } = await supabase
-        .from("viagens")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (data) {
-        const sorted = [...data].sort((a, b) => {
-          if (a.status === 'traveling') return -1;
-          if (b.status === 'traveling') return 1;
-          return 0;
-        });
-        setViagens(sorted.slice(0, 5));
-      }
+      try {
+        const { data } = await supabase
+          .from("viagens")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (data) {
+          const sorted = [...data].sort((a, b) => {
+            if (a.status === 'traveling') return -1;
+            if (b.status === 'traveling') return 1;
+            return 0;
+          });
+          setViagens(sorted.slice(0, 5));
+        }
 
-      const { data: cal } = await supabase
-        .from("calendario_missao")
-        .select("*")
-        .order("data_partida", { ascending: true });
-      if (cal) {
-        setPlanejadas(cal);
+        const { data: cal } = await supabase
+          .from("calendario_missao")
+          .select("*")
+          .order("data_partida", { ascending: true });
+        if (cal) {
+          const now = new Date();
+          // Filtro seguro: garante que data_partida existe antes de converter
+          const futuras = cal.filter(p => p.data_partida && new Date(p.data_partida) > now);
+          setPlanejadas(futuras);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar viagens no log:", err);
       }
     };
+    
     fetchViagens();
+
+    const interval = setInterval(() => {
+      fetchViagens().catch(() => {}); // Silencia erros repetitivos de polling
+    }, 10000); // Aumentado para 10 segundos para evitar NetworkError
+    
+    return () => clearInterval(interval);
   }, []);
 
   return (

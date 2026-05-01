@@ -61,10 +61,23 @@ export default function LeafletTrackMap({ points }: LeafletTrackMapProps) {
     const fetchRoute = async () => {
       if (!points || points.length < 2) return;
       try {
-        const coordsString = points.map((p) => `${p.lng},${p.lat}`).join(";");
+        // Filtra pontos duplicados consecutivos para evitar erro 500 no OSRM
+        const uniquePoints = points.reduce((acc: any[], current: any) => {
+          const last = acc[acc.length - 1];
+          if (!last || last.lat !== current.lat || last.lng !== current.lng) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
+        if (uniquePoints.length < 2) return;
+
+        const coordsString = uniquePoints.map((p) => `${p.lng},${p.lat}`).join(";");
         const url = `/api/route-proxy?coords=${coordsString}`;
         
         const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        
         const data = await res.json();
 
         if (data.routes && data.routes.length > 0) {

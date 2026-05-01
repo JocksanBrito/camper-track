@@ -117,6 +117,11 @@ export default function AdminDashboard() {
 
         if (crew) {
           setRecruits(crew);
+          // Carregar quem já é motorista e copiloto para os estados
+          const currentDriver = crew.find(r => r.funcao_missao === 'motorista');
+          const currentCopilot = crew.find(r => r.funcao_missao === 'copiloto');
+          if (currentDriver) setDriverId(currentDriver.user_id);
+          if (currentCopilot) setPassengerId(currentCopilot.user_id);
         }
 
         const { data: allViagens } = await supabase.from("viagens").select("*").order("created_at", { ascending: false });
@@ -152,7 +157,11 @@ export default function AdminDashboard() {
       updated_at: new Date().toISOString()
     }).eq("id", profileId);
 
-    // Atualizar Roles (Motorista e Copiloto)
+    // 1. Resetar quem era motorista/copiloto anteriormente para garantir exclusividade
+    // Isso resolve o problema de múltiplos usuários com o mesmo cargo
+    await supabase.from("tripulacao").update({ funcao_missao: 'passageiro' }).in('funcao_missao', ['motorista', 'copiloto']);
+
+    // 2. Atualizar Roles (Motorista e Copiloto) com os novos escolhidos
     if (driverId) await supabase.from("tripulacao").update({ funcao_missao: 'motorista' }).eq('user_id', driverId);
     if (passengerId) await supabase.from("tripulacao").update({ funcao_missao: 'copiloto' }).eq('user_id', passengerId);
 

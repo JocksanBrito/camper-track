@@ -8,6 +8,7 @@
   --mario-blue: hsl(217, 91%, 60%);
   --mario-yellow: hsl(48, 100%, 50%);
   --mario-green: hsl(142, 71%, 45%);
+  --mario-orange: hsl(30, 100%, 50%);
   --game-card: hsl(240, 20%, 12%);
   --game-border: hsl(240, 20%, 20%);
 }
@@ -21,6 +22,7 @@
   --color-mario-blue: var(--mario-blue);
   --color-mario-yellow: var(--mario-yellow);
   --color-mario-green: var(--mario-green);
+  --color-mario-orange: var(--mario-orange);
   --color-game-card: var(--game-card);
   --color-game-border: var(--game-border);
 }

@@ -60,11 +60,18 @@ export default function Home() {
       // 0. Fetch User Permissions
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: prof } = await supabase.from("tripulacao").select("role, funcao_missao").eq("user_id", user.id).maybeSingle();
+        const { data: prof } = await supabase
+          .from("tripulacao")
+          .select("role, funcao_missao")
+          .eq("user_id", user.id)
+          .maybeSingle();
         if (prof) {
           setUserRole(prof.role || "usuario");
           setUserFuncao(prof.funcao_missao || "passageiro");
         }
+      } else {
+        setUserRole("");
+        setUserFuncao("");
       }
 
       // 1. Fetch Points
@@ -165,8 +172,16 @@ export default function Home() {
         setEstimatedSpeed(0);
       }
     };
-    loadRealData();
-    const interval = setInterval(loadRealData, 5000);
+    
+    try {
+      loadRealData();
+    } catch (e) {
+      console.error("Erro ao carregar dados da Home:", e);
+    }
+
+    const interval = setInterval(() => {
+      loadRealData().catch(() => {});
+    }, 15000); // 15 segundos para aliviar a rede
     return () => clearInterval(interval);
   }, []);
 
